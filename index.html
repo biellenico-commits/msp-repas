@@ -182,10 +182,10 @@ tr:hover td{background:rgba(0,0,0,.015)}
 
 /* === NOMBRE CELL (groupes) === */
 .nombre-cell{display:flex;align-items:center;justify-content:center;gap:0}
-.nombre-btn{width:24px;height:28px;background:var(--bg);border:1px solid var(--border);color:var(--txt2);cursor:pointer;font-size:14px;font-weight:700;display:flex;align-items:center;justify-content:center;transition:all .1s}
+.nombre-btn{width:22px;height:28px;background:var(--bg);border:1px solid var(--border);color:var(--txt2);cursor:pointer;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;transition:all .1s}
 .nombre-btn:first-child{border-radius:6px 0 0 6px}.nombre-btn:last-child{border-radius:0 6px 6px 0}
 .nombre-btn:hover{background:var(--blue-bg);color:var(--blue)}
-.nombre-input{width:32px;text-align:center;background:var(--bg);border:1px solid var(--border);border-left:none;border-right:none;color:var(--txt);font-size:12px;font-weight:700;padding:3px 0;outline:none;font-family:inherit}
+.nombre-input{width:28px;text-align:center;background:var(--bg);border:1px solid var(--border);border-left:none;border-right:none;color:var(--txt);font-size:12px;font-weight:700;padding:3px 0;outline:none;font-family:inherit}
 
 /* === SECTION DIVIDER === */
 .section-divider{font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;margin:24px 0 16px;display:flex;align-items:center;gap:12px;color:var(--txt2)}
@@ -430,7 +430,7 @@ tr:hover td{background:rgba(0,0,0,.015)}
     <div><h1>Commande — Absences</h1><p class="subtitle" id="cmd-sub"></p></div>
     <div class="btn-group" style="align-items:center">
       <button class="btn btn-outline btn-sm" onclick="exportCommandeExcel()">📤 Export Excel</button>
-      <label class="btn btn-outline btn-sm perm-commande" style="cursor:pointer">📥 Import Excel<input type="file" id="import-cmd-excel" accept=".xlsx,.xls" style="display:none" onchange="importCommandeExcel(event)"></label>
+      <label class="btn btn-outline btn-sm perm-absences" style="cursor:pointer">📥 Import Excel<input type="file" id="import-cmd-excel" accept=".xlsx,.xls" style="display:none" onchange="importCommandeExcel(event)"></label>
       <button class="btn btn-outline btn-sm" id="btn-reset-week" onclick="resetWeek()" style="opacity:.3;cursor:not-allowed" disabled title="Réservé au Super Admin">🔄 Réinitialiser</button>
     </div>
   </div>
@@ -457,8 +457,8 @@ tr:hover td{background:rgba(0,0,0,.015)}
         <button class="btn btn-outline btn-sm perm-admin" style="display:none;border-color:var(--teal);color:var(--teal)" onclick="$('import-backup-in').click()">📥 Restaurer</button>
         <input type="file" id="import-backup-in" accept=".json" style="display:none" onchange="importBackup(event)">
       </div>
-      <button class="btn btn-success btn-sm perm-commande" onclick="sendEmailCommande()">📧 Envoyer par email</button>
-      <button class="btn btn-primary btn-sm perm-commande" onclick="printTotaux()">🖨 Imprimer</button>
+      <button class="btn btn-success btn-sm" onclick="sendEmailCommande()">📧 Envoyer par email</button>
+      <button class="btn btn-primary btn-sm" onclick="printTotaux()">🖨 Imprimer</button>
     </div>
   </div>
   <div id="tot-content"></div>
@@ -674,6 +674,32 @@ tr:hover td{background:rgba(0,0,0,.015)}
   </div>
 </div>
 
+
+<!-- Modal Demande Modification Après Envoi -->
+<div class="modal-overlay" id="modal-modif-envoi">
+  <div class="modal" style="max-width:500px">
+    <div class="modal-head" style="background:var(--amber);color:#fff">
+      <h2>📋 Modifications après envoi</h2>
+      <button class="modal-close" onclick="closeModal('modal-modif-envoi')" style="color:#fff;background:rgba(255,255,255,.15)">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="background:var(--amber-bg);border-left:3px solid var(--amber);border-radius:0 8px 8px 0;padding:12px 16px;margin-bottom:16px;font-size:13px;color:var(--amber);font-weight:500">
+        ⚠️ La commande de cette semaine a déjà été envoyée à la cuisine centrale. Vos modifications seront signalées par email.
+      </div>
+      <div id="modif-liste" style="margin-bottom:16px;max-height:200px;overflow-y:auto;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:12px;line-height:2"></div>
+      <div class="form-group">
+        <label>Message pour la cuisine (optionnel)</label>
+        <textarea id="modif-note" placeholder="Précisez si nécessaire…" style="min-height:70px"></textarea>
+      </div>
+      <div id="modif-email-status" style="display:none;margin-top:10px;padding:10px 14px;border-radius:8px;font-size:13px;font-weight:500"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" onclick="closeModal('modal-modif-envoi')">Fermer sans envoyer</button>
+      <button class="btn btn-amber" id="btn-send-modif" onclick="sendModifEmail()">📧 Envoyer à la cuisine</button>
+    </div>
+  </div>
+</div>
+
 </main>
 
 <!-- Save Bar -->
@@ -695,8 +721,7 @@ tr:hover td{background:rgba(0,0,0,.015)}
         <div class="form-group full"><label>Nom *</label><input type="text" id="r-nom"></div>
         <div class="form-group"><label>🍽 Lieu midi</label><select id="r-lm"></select></div>
         <div class="form-group"><label>🌙 Lieu soir</label><select id="r-ls"></select></div>
-        <div class="form-group"><label>Service midi</label><select id="r-sm"><option value="1">1er service</option><option value="2">2ème service</option></select></div>
-        <div class="form-group"><label>Service soir</label><select id="r-ss"><option value="1">1er service</option><option value="2">2ème service</option></select></div>
+
         <div class="form-group"><label>Texture *</label><select id="r-reg"></select></div>
         <div class="form-group"><label>Régime spécial</label><select id="r-spe"></select></div>
         <div class="form-group"><label>Portions</label><input type="number" id="r-por" min="0" max="10" step="0.5" value="1"></div>
@@ -719,8 +744,7 @@ tr:hover td{background:rgba(0,0,0,.015)}
         <div class="form-group"><label>📅 Départ *</label><input type="date" id="t-dep"></div>
         <div class="form-group"><label>🍽 Lieu midi</label><select id="t-lm"></select></div>
         <div class="form-group"><label>🌙 Lieu soir</label><select id="t-ls"></select></div>
-        <div class="form-group"><label>Service midi</label><select id="t-sm"><option value="1">1er service</option><option value="2">2ème service</option></select></div>
-        <div class="form-group"><label>Service soir</label><select id="t-ss"><option value="1">1er service</option><option value="2">2ème service</option></select></div>
+
         <div class="form-group"><label>Texture *</label><select id="t-reg"></select></div>
         <div class="form-group"><label>Régime spécial</label><select id="t-spe"></select></div>
         <div class="form-group"><label>Portions</label><input type="number" id="t-por" min="0" max="10" step="0.5" value="1"></div>
@@ -987,8 +1011,7 @@ async function loadFromSupabase(){
     if(res){
       S.residents=res.map(r=>({
         id:r.id,nom:r.nom,regime:r.regime||'Normal',special:r.special||'',
-        portions:r.portions||1,adapt:r.adapt||'',
-        serviceMidi:r.service_midi||1,serviceSoir:r.service_soir||1
+        portions:r.portions||1,adapt:r.adapt||''
       }));
       // Affectations
       res.forEach(r=>{S.affectations[r.id]={midi:r.lieu_midi||'',soir:r.lieu_soir||''}});
@@ -1000,7 +1023,6 @@ async function loadFromSupabase(){
       S.temporaires=temps.map(t=>({
         id:t.id,nom:t.nom,dateArrivee:t.date_arrivee,dateDepart:t.date_depart,
         lieuMidi:t.lieu_midi||'',lieuSoir:t.lieu_soir||'',
-        serviceMidi:t.service_midi||1,serviceSoir:t.service_soir||1,
         regime:t.regime||'Normal',special:t.special||'',portions:t.portions||1,
         adapt:t.adapt||'',habitudes:t.habitudes||null,archived:t.archived||false
       }));
@@ -1071,7 +1093,10 @@ async function loadFromSupabase(){
       S.printHistory={};
       ph.forEach(p=>{
         S.printHistory[p.semaine]={
-          printDate:p.print_date,snapshot:p.snapshot||{},
+          printDate:p.print_date,
+          printUser:p.snapshot?.printUser||'—',
+          printEmail:p.snapshot?.printEmail||'',
+          snapshot:p.snapshot||{},
           modifications:p.modifications||[],bonCounter:p.bon_counter||0
         };
       });
@@ -1136,7 +1161,6 @@ async function pushToSupabase(section='all'){
         const rows=S.residents.map(r=>({
           id:r.id,nom:r.nom,regime:r.regime,special:r.special,
           portions:r.portions,adapt:r.adapt,
-          service_midi:r.serviceMidi,service_soir:r.serviceSoir,
           lieu_midi:S.affectations[r.id]?.midi||null,
           lieu_soir:S.affectations[r.id]?.soir||null
         }));
@@ -1149,7 +1173,6 @@ async function pushToSupabase(section='all'){
         const rows=S.temporaires.map(t=>({
           id:t.id,nom:t.nom,date_arrivee:t.dateArrivee,date_depart:t.dateDepart,
           lieu_midi:t.lieuMidi||null,lieu_soir:t.lieuSoir||null,
-          service_midi:t.serviceMidi,service_soir:t.serviceSoir,
           regime:t.regime,special:t.special,portions:t.portions,
           adapt:t.adapt,habitudes:t.habitudes,archived:t.archived||false
         }));
@@ -1230,7 +1253,7 @@ async function pushToSupabase(section='all'){
       const rows=Object.keys(S.printHistory).map(sem=>({
         semaine:sem,
         print_date:S.printHistory[sem].printDate,
-        snapshot:S.printHistory[sem].snapshot,
+        snapshot:{...S.printHistory[sem].snapshot,printUser:S.printHistory[sem].printUser,printEmail:S.printHistory[sem].printEmail},
         modifications:S.printHistory[sem].modifications,
         bon_counter:S.printHistory[sem].bonCounter||0
       }));
@@ -1344,7 +1367,23 @@ function showConfirm(title,msg,cb){$('cf-title').textContent=title;$('cf-msg').t
 // ============================================================
 // MODIFICATION TRACKING
 // ============================================================
-function trackPrint(){const w=wk();if(!S.printHistory)S.printHistory={};if(!S.printHistory[w]){S.printHistory[w]={printDate:new Date().toISOString(),snapshot:captureState(),modifications:[],bonCounter:0};auditLog('COMMANDE_IMPRIMEE',{semaine:w});save('print_history');}updateBonBtn()}
+function trackPrint(){
+  const w=wk();
+  if(!S.printHistory)S.printHistory={};
+  if(!S.printHistory[w]){
+    S.printHistory[w]={
+      printDate:new Date().toISOString(),
+      printUser:currentUser?.nom||'—',
+      printEmail:currentUser?.email||'',
+      snapshot:captureState(),
+      modifications:[],
+      bonCounter:0
+    };
+    auditLog('COMMANDE_IMPRIMEE',{semaine:w});
+    save('print_history');
+  }
+  updateBonBtn();
+}
 function captureState(){const w=wk();return{absences:JSON.parse(JSON.stringify(S.absences[w]||{})),piquenique:JSON.parse(JSON.stringify(S.piquenique[w]||{}))}}
 function trackMod(pid,dayIdx,svc,oldV,newV){const w=wk();if(!S.printHistory||!S.printHistory[w]||!S.printHistory[w].printDate)return;let name='';const r=S.residents.find(x=>x.id===pid);if(r)name=r.nom;else{const t=(S.temporaires||[]).find(x=>x.id===pid);if(t)name=t.nom+' (AT)'}S.printHistory[w].modifications.push({date:new Date().toISOString(),personId:pid,personName:name,dayIndex:dayIdx,dayName:DAYS[dayIdx],service:svc,oldValue:oldV,newValue:newV});save('print_history');updateBonBtn()}
 function updateBonBtn(){const w=wk(),b=$('btn-bon');if(!b)return;const has=S.printHistory?.[w]?.modifications?.length>0;b.style.display=has?'inline-flex':'none'}
@@ -1533,10 +1572,116 @@ function togglePresence(pid,dayIdx,svc){
   trackMod(pid,dayIdx,svc,oldV,newV);
   auditLog('ABSENCE_MODIFIEE',{resident:pid,jour:DAYS[dayIdx],service:svc,de:oldV,vers:newV});
   save('absences');
-  // Sauvegarder piquenique aussi
   clearTimeout(saveTimer);
   saveTimer=setTimeout(()=>pushToSupabase('piquenique'),800);
   renderCommande();
+  // Si commande déjà envoyée, proposer envoi modif après un délai
+  if(S.printHistory?.[w]?.printDate){
+    clearTimeout(window._modifTimer);
+    window._modifTimer=setTimeout(()=>openModifModal(),1500);
+  }
+}
+
+function openModifModal(){
+  const w=wk();
+  const mods=S.printHistory?.[w]?.modifications||[];
+  if(!mods.length)return;
+  // Afficher la liste des modifications
+  const liste=$('modif-liste');
+  if(liste){
+    liste.innerHTML=mods.slice(-10).map(m=>{
+      const r=S.residents.find(x=>x.id===m.personId)||(S.temporaires||[]).find(x=>x.id===m.personId);
+      const nom=r?.nom||m.personName||m.personId;
+      const d=new Date(m.date);
+      return`<div style="border-bottom:1px solid var(--border);padding:2px 0"><strong>${nom}</strong> — ${m.dayName} ${m.service} : <span style="color:var(--red)">${m.oldValue}</span> → <span style="color:var(--green)">${m.newValue}</span> <span style="color:var(--txt3);font-size:10px">(${d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})})</span></div>`;
+    }).join('');
+  }
+  $('modif-note').value='';
+  $('modif-email-status').style.display='none';
+  const btn=$('btn-send-modif');if(btn){btn.disabled=false;btn.textContent='📧 Envoyer à la cuisine';}
+  openModal('modal-modif-envoi');
+}
+
+async function sendModifEmail(){
+  const w=wk(),week=S.currentWeek,year=S.currentYear;
+  const mods=S.printHistory?.[w]?.modifications||[];
+  const note=$('modif-note').value.trim();
+  const btn=$('btn-send-modif');
+  const status=$('modif-email-status');
+  btn.disabled=true;btn.textContent='⏳ Envoi…';
+
+  // Construire le contenu HTML des modifications
+  let htmlMods=`<h3 style="font-family:Arial,sans-serif;color:#d97706">Modifications — Semaine ${week}/${year}</h3>`;
+  htmlMods+=`<table border="1" cellpadding="4" cellspacing="0" style="border-collapse:collapse;font-family:Arial,sans-serif;font-size:12px;margin-top:10px">`;
+  htmlMods+=`<thead><tr style="background:#fee2b3"><th>Résident</th><th>Jour</th><th>Service</th><th>Avant</th><th>Après</th><th>Heure</th></tr></thead><tbody>`;
+  mods.forEach(m=>{
+    const d=new Date(m.date);
+    htmlMods+=`<tr><td>${m.personName||m.personId}</td><td>${m.dayName}</td><td>${m.service}</td><td style="color:#dc2626;font-weight:700">${m.oldValue}</td><td style="color:#059669;font-weight:700">${m.newValue}</td><td style="color:#6b7280">${d.toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</td></tr>`;
+  });
+  htmlMods+=`</tbody></table>`;
+
+  if(!EMAILJS_PUBLIC_KEY){
+    status.style.display='block';
+    status.style.background='var(--amber-bg)';
+    status.style.color='var(--amber)';
+    status.style.border='1px solid var(--amber-border)';
+    status.innerHTML='⚠️ EmailJS non configuré — modification enregistrée en local uniquement';
+    btn.disabled=false;btn.textContent='📧 Envoyer à la cuisine';
+    return;
+  }
+
+  try{
+    emailjs.init(EMAILJS_PUBLIC_KEY);
+    await emailjs.send(EMAILJS_SERVICE_ID,EMAILJS_TEMPLATE_ID,{
+      semaine:`Semaine ${week} - ${year}`,
+      periode:`Modification après envoi`,
+      etablissement:'Maison Saint-Paul - ANDAPEI Lot-et-Garonne',
+      to_email:EMAIL_CUISINE,
+      cc_email:EMAIL_CC,
+      note:note||'Aucune remarque.',
+      contenu_html:htmlMods
+    });
+    status.style.display='block';
+    status.style.background='var(--green-bg)';
+    status.style.color='var(--green)';
+    status.style.border='1px solid var(--green-border)';
+    status.innerHTML=`✅ Email envoyé à <strong>${EMAIL_CUISINE}</strong>`;
+    auditLog('MODIFICATION_ENVOYEE_CUISINE',{semaine:w,nbModifs:mods.length});
+
+    // Créer un bon de modification dans l'historique
+    if(!S.printHistory[w].bonCounter)S.printHistory[w].bonCounter=0;
+    S.printHistory[w].bonCounter++;
+    const bonNum=S.printHistory[w].bonCounter;
+    const mon2=getDateForDay(week,0),sun2=getDateForDay(week,6);
+    const dd=fmtDate(mon2.toISOString()),df=fmtDate(sun2.toISOString());
+    if(!S.bonsModification)S.bonsModification=[];
+    S.bonsModification.push({
+      id:'bon_'+Date.now(),
+      date:new Date().toISOString(),
+      week,year,
+      dateDebut:dd,dateFin:df,
+      bonNumber:bonNum,
+      modificationsCount:mods.length,
+      modifications:[...mods],
+      sentByEmail:true,
+      sentBy:currentUser?.nom||'—'
+    });
+    // Vider les modifications en attente
+    S.printHistory[w].modifications=[];
+    save('print_history');
+    save('bons');
+    updateBonBtn();
+
+    btn.textContent='✅ Envoyé';
+    setTimeout(()=>{closeModal('modal-modif-envoi');renderHist();},2500);
+  }catch(e){
+    status.style.display='block';
+    status.style.background='var(--red-bg)';
+    status.style.color='var(--red)';
+    status.style.border='1px solid var(--red-border)';
+    status.innerHTML=`❌ Erreur : ${e.text||e.message}`;
+    btn.disabled=false;btn.textContent='📧 Envoyer à la cuisine';
+  }
 }
 
 function renderCommande(){
@@ -1554,7 +1699,7 @@ function renderCommande(){
   const sub=$('cmd-sub');if(sub)sub.textContent=`S${S.currentWeek} — ${S.currentYear}`;
   const w=wk();
   
-  let h=`<table style="min-width:1100px"><thead><tr><th style="min-width:170px">Résident</th><th style="min-width:80px">Régime</th>`;
+  let h=`<table style="min-width:820px"><thead><tr><th style="min-width:170px">Résident</th><th style="min-width:80px">Régime</th>`;
   DAYS.forEach((d,i)=>{h+=`<th colspan="2" style="text-align:center;border-bottom:2px solid ${DAY_C[i]}"><div style="font-size:9px;font-weight:800;color:${DAY_C[i]}">${d.toUpperCase()}</div><div style="display:flex;justify-content:space-around;margin-top:2px;font-size:8px;color:var(--txt3)"><span>MIDI</span><span>SOIR</span></div></th>`});
   h+=`</tr></thead><tbody>`;
 
@@ -1576,13 +1721,36 @@ function renderCommande(){
       let mHab=true,sHab=true;
       if(p.isTempo&&p.habitudes){mHab=p.habitudes[ms]!==false;sHab=p.habitudes[ss]!==false}
       
+      const cmdSent=!!(S.printHistory?.[w]?.printDate);
+      const isAdminUser=currentUser&&(currentUser.role==='responsable'||currentUser.role==='superadmin');
       const mkBtn=(abs,pn,planned,isPast,hab,svc)=>{
+        // Habitue non concernée (AT)
         if(!hab)return`<button class="repas-btn" disabled style="opacity:.3;cursor:not-allowed;background:transparent;color:var(--txt3);border-color:transparent">—</button>`;
-        let cls='repas-ok',txt='OK',dis='';
+        let cls='repas-ok',txt='OK';
         if(abs){cls='repas-abs';txt='ABS'}else if(pn){cls='repas-pn';txt='PN'}
-        if(planned)dis='disabled style="opacity:.5;cursor:not-allowed"';
-        else if(isPast&&!getPerms().canEdit)dis='disabled style="opacity:.4;cursor:not-allowed" title="Date passée"';
-        return`<button class="repas-btn ${cls}" onclick="togglePresence('${pid}',${di},'${svc}')" ${dis}>${txt}</button>`;
+
+        // CAS 1 : Absence planifiée → toujours bloqué pour tous
+        if(planned){
+          return`<button class="repas-btn ${cls}" disabled style="opacity:.5;cursor:not-allowed">${txt}</button>`;
+        }
+
+        // CAS 2 : Jour passé + non admin → bloqué avec fond grisé
+        if(isPast&&!isAdminUser){
+          return`<button class="repas-btn ${cls}" disabled style="opacity:.35;cursor:not-allowed;filter:grayscale(60%)" title="Date passée">${txt}</button>`;
+        }
+
+        // CAS 3 : Jour passé + admin → cliquable, fond légèrement grisé pour indiquer que c'est passé
+        if(isPast&&isAdminUser&&!cmdSent){
+          return`<button class="repas-btn ${cls}" onclick="togglePresence('${pid}',${di},'${svc}')" style="opacity:.7;border-style:dashed" title="Jour passé — modifiable (admin)">${txt}</button>`;
+        }
+
+        // CAS 4 : Commande envoyée (passé ou futur) → cadenas orange, cliquable pour tous
+        if(cmdSent){
+          return`<button class="repas-btn ${cls}" onclick="togglePresence('${pid}',${di},'${svc}')" style="outline:2px solid var(--amber);outline-offset:1px" title="Commande envoyée — modification signalée à la cuisine">${txt} 🔒</button>`;
+        }
+
+        // CAS 5 : Normal → cliquable
+        return`<button class="repas-btn ${cls}" onclick="togglePresence('${pid}',${di},'${svc}')">${txt}</button>`;
       };
       
       h+=`<td colspan="2" style="padding:0"><div style="display:flex"><div style="width:50%;padding:3px;border-right:1px solid var(--border)">${mkBtn(mAbs,mPn,mPl,past,mHab,'midi')}</div><div style="width:50%;padding:3px">${mkBtn(sAbs,sPn,sPl,past,sHab,'soir')}</div></div></td>`;
@@ -1623,7 +1791,12 @@ function renderTotaux(){
   let bandeau='';
   if(S.printHistory?.[w]?.printDate){
     const pd=new Date(S.printHistory[w].printDate);
-    bandeau=`<div class="bandeau-print"><strong>📤 COMMANDE IMPRIMÉE</strong><p>Le ${pd.toLocaleDateString('fr-FR')} à ${pd.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</p></div>`;
+    const pu=S.printHistory[w].printUser||'—';
+    const pe=S.printHistory[w].printEmail||'';
+    bandeau=`<div class="bandeau-print">
+      <strong>📤 Commande envoyée à la cuisine centrale</strong>
+      <p>Le ${pd.toLocaleDateString('fr-FR')} à ${pd.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})} — par <strong>${pu}</strong>${pe?' ('+pe+')':''}</p>
+    </div>`;
   }
   
   const sites={};
@@ -1651,7 +1824,17 @@ function renderTotaux(){
           if(t.lieuMidi===lieu.id){const ms=di*2;if(!t.habitudes||t.habitudes[ms]!==false){const pk=`${t.id}_${di}_midi`,isPn=S.piquenique[w]?.[pk];const k=`${t.regime}${t.special?' + '+t.special:''}`;if(isPn){pnSet.add(k);jM.pnRegimes[k]=(jM.pnRegimes[k]||0)+1}else{regSet.add(k);jM.regimes[k]=(jM.regimes[k]||0)+1}}}
           if(t.lieuSoir===lieu.id){const ss=di*2+1;if(!t.habitudes||t.habitudes[ss]!==false){const pk=`${t.id}_${di}_soir`,isPn=S.piquenique[w]?.[pk];const k=`${t.regime}${t.special?' + '+t.special:''}`;if(isPn){pnSet.add(k);jS.pnRegimes[k]=(jS.pnRegimes[k]||0)+1}else{regSet.add(k);jS.regimes[k]=(jS.regimes[k]||0)+1}}}
         });
-        S.groupes.filter(g=>g.lieuId===lieu.id).forEach(g=>{regSet.add('Normal');jM.regimes['Normal']=(jM.regimes['Normal']||0)+(g.vals?.[di]||0);jS.regimes['Normal']=(jS.regimes['Normal']||0)+(g.valsSoir?.[di]||0)});
+        S.groupes.filter(g=>g.lieuId===lieu.id).forEach(g=>{
+          regSet.add('Normal');
+          jM.regimes['Normal']=(jM.regimes['Normal']||0)+(g.vals?.[di]||0);
+          jS.regimes['Normal']=(jS.regimes['Normal']||0)+(g.valsSoir?.[di]||0);
+          // Pique-nique personnel
+          if((g.valsPn?.[di]||0)+(g.valsSoirPn?.[di]||0)>0){
+            pnSet.add('Normal');
+            jM.pnRegimes['Normal']=(jM.pnRegimes['Normal']||0)+(g.valsPn?.[di]||0);
+            jS.pnRegimes['Normal']=(jS.pnRegimes['Normal']||0)+(g.valsSoirPn?.[di]||0);
+          }
+        });
       });
       
       let hm=false,hs=false;
@@ -1687,16 +1870,10 @@ function renderTotaux(){
 // PRINT TOTAUX
 // ============================================================
 function printTotaux(){
-  const w=wk(),week=S.currentWeek,year=S.currentYear;
-  const mon=getDateForDay(week,0),sun=getDateForDay(week,6);
-  $('print-msg').textContent=`Envoyer la commande pour la semaine ${week} ?`;
-  $('print-dates').textContent=`Du ${fmtDate(mon.toISOString())} au ${fmtDate(sun.toISOString())}`;
-  openModal('modal-print');
+  confirmPrint();
 }
 
 function confirmPrint(){
-  closeModal('modal-print');
-  trackPrint();
   const w=wk(),week=S.currentWeek,year=S.currentYear;
   const mon=getDateForDay(week,0),sun=getDateForDay(week,6);
   const sites={};S.lieux.filter(l=>!l.isStaffOnly).forEach(l=>{const s=l.section||'Autre';if(!sites[s])sites[s]=[];sites[s].push(l)});
@@ -1729,6 +1906,13 @@ function confirmPrint(){
           if(!regMap.has('Normal'))regMap.set('Normal',{midi:Array(7).fill(0),soir:Array(7).fill(0)});
           regMap.get('Normal').midi[di]+=(g.vals?.[di]||0);
           regMap.get('Normal').soir[di]+=(g.valsSoir?.[di]||0);
+          // Pique-nique personnel = compte comme repas envoyé
+          // PN personnel → dans pnMap comme les résidents
+          if((g.valsPn?.[di]||0)+(g.valsSoirPn?.[di]||0)>0){
+            if(!pnMap.has('Normal'))pnMap.set('Normal',{midi:Array(7).fill(0),soir:Array(7).fill(0)});
+            pnMap.get('Normal').midi[di]+=(g.valsPn?.[di]||0);
+            pnMap.get('Normal').soir[di]+=(g.valsSoirPn?.[di]||0);
+          }
         });
       }
     });
@@ -1795,6 +1979,13 @@ function buildCommandeHTML(){
           if(!regMap.has('Normal'))regMap.set('Normal',{midi:Array(7).fill(0),soir:Array(7).fill(0)});
           regMap.get('Normal').midi[di]+=(g.vals?.[di]||0);
           regMap.get('Normal').soir[di]+=(g.valsSoir?.[di]||0);
+          // Pique-nique personnel = compte comme repas envoyé
+          // PN personnel → dans pnMap comme les résidents
+          if((g.valsPn?.[di]||0)+(g.valsSoirPn?.[di]||0)>0){
+            if(!pnMap.has('Normal'))pnMap.set('Normal',{midi:Array(7).fill(0),soir:Array(7).fill(0)});
+            pnMap.get('Normal').midi[di]+=(g.valsPn?.[di]||0);
+            pnMap.get('Normal').soir[di]+=(g.valsSoirPn?.[di]||0);
+          }
         });
       }
     });
@@ -1877,7 +2068,11 @@ async function doSendEmail(){
     $('email-status').style.color='var(--green)';
     $('email-status').style.border='1px solid var(--green-border)';
     $('email-status').innerHTML=`✅ Email envoyé avec succès à <strong>${EMAIL_CUISINE}</strong> (cc: ${EMAIL_CC})`;
-    toast('Commande envoyée par email','success');auditLog('EMAIL_ENVOYE',{semaine:wk(),destinataire:EMAIL_CUISINE});
+    toast('Commande envoyée par email','success');
+    auditLog('EMAIL_ENVOYE',{semaine:wk(),destinataire:EMAIL_CUISINE});
+    trackPrint();
+    renderTotaux();
+    renderCommande();
     btn.textContent='✅ Envoyé';
     btn.disabled=false;
     setTimeout(()=>{closeModal('modal-email');btn.textContent='📧 Envoyer';},3000);
@@ -2019,11 +2214,11 @@ function openResidentModal(id){
   if(id){
     const r=S.residents.find(x=>x.id===id),a=S.affectations[id]||{};
     $('mrt').textContent='Modifier résident';$('r-id').value=id;$('r-nom').value=r.nom;
-    $('r-lm').value=a.midi||'';$('r-ls').value=a.soir||'';$('r-sm').value=r.serviceMidi||1;$('r-ss').value=r.serviceSoir||1;
+    $('r-lm').value=a.midi||'';$('r-ls').value=a.soir||'';
     $('r-reg').value=r.regime;$('r-spe').value=r.special||'';$('r-por').value=r.portions||1;$('r-ada').value=r.adapt||'';
   }else{
     $('mrt').textContent='Nouveau résident';$('r-id').value='';$('r-nom').value='';$('r-lm').value='';$('r-ls').value='';
-    $('r-sm').value=1;$('r-ss').value=1;$('r-reg').value=S.textures[0]?.nom||'Normal';$('r-spe').value='';$('r-por').value=1;$('r-ada').value='';
+    $('r-reg').value=S.textures[0]?.nom||'Normal';$('r-spe').value='';$('r-por').value=1;$('r-ada').value='';
   }
   openModal('modal-resident');
 }
@@ -2031,7 +2226,7 @@ function openResidentModal(id){
 function saveResident(){
   if(!getPerms().canEdit){toast('Accès non autorisé','error');return}
   const nom=$('r-nom').value.trim();if(!nom){toast('Le nom est requis','error');return}
-  const data={nom,regime:$('r-reg').value,special:$('r-spe').value,portions:parseFloat($('r-por').value)||1,adapt:$('r-ada').value.trim(),serviceMidi:+$('r-sm').value||1,serviceSoir:+$('r-ss').value||1};
+  const data={nom,regime:$('r-reg').value,special:$('r-spe').value,portions:parseFloat($('r-por').value)||1,adapt:$('r-ada').value.trim()};
   const aff={midi:$('r-lm').value,soir:$('r-ls').value};
   const eid=$('r-id').value;
   if(eid){const i=S.residents.findIndex(r=>r.id===eid);if(i>=0)S.residents[i]={...S.residents[i],...data};S.affectations[eid]=aff}
@@ -2086,12 +2281,12 @@ function openTempoModal(id){
     const t=S.temporaires.find(x=>x.id===id);if(!t)return;
     $('mtt').textContent='Modifier séjour';$('t-id').value=id;$('t-nom').value=t.nom;
     $('t-arr').value=t.dateArrivee;$('t-dep').value=t.dateDepart;$('t-lm').value=t.lieuMidi||'';$('t-ls').value=t.lieuSoir||'';
-    $('t-sm').value=t.serviceMidi||1;$('t-ss').value=t.serviceSoir||1;$('t-reg').value=t.regime;$('t-spe').value=t.special||'';
+    $('t-reg').value=t.regime;$('t-spe').value=t.special||'';
     $('t-por').value=t.portions||1;$('t-ada').value=t.adapt||'';
     if(t.habitudes){for(let i=0;i<7;i++){const m=$(`hab-${i}-m`),s=$(`hab-${i}-s`);if(m)m.checked=t.habitudes[i*2]!==false;if(s)s.checked=t.habitudes[i*2+1]!==false}}
   }else{
     $('mtt').textContent='Nouveau séjour';$('t-id').value='';$('t-nom').value='';$('t-arr').value='';$('t-dep').value='';
-    $('t-lm').value='';$('t-ls').value='';$('t-sm').value=1;$('t-ss').value=1;
+    $('t-lm').value='';$('t-ls').value='';
     $('t-reg').value=S.textures[0]?.nom||'Normal';$('t-spe').value='';$('t-por').value=1;$('t-ada').value='';
   }
   openModal('modal-tempo');
@@ -2102,7 +2297,7 @@ function saveTemporaire(){
   const nom=$('t-nom').value.trim(),arr=$('t-arr').value,dep=$('t-dep').value;
   if(!nom){toast('Le nom est requis','error');return}if(!arr||!dep){toast('Les dates sont requises','error');return}
   const hab=[];for(let i=0;i<7;i++){hab.push($(`hab-${i}-m`)?.checked!==false);hab.push($(`hab-${i}-s`)?.checked!==false)}
-  const data={nom,dateArrivee:arr,dateDepart:dep,lieuMidi:$('t-lm').value,lieuSoir:$('t-ls').value,serviceMidi:+$('t-sm').value||1,serviceSoir:+$('t-ss').value||1,regime:$('t-reg').value,special:$('t-spe').value,portions:parseFloat($('t-por').value)||1,adapt:$('t-ada').value.trim(),habitudes:hab};
+  const data={nom,dateArrivee:arr,dateDepart:dep,lieuMidi:$('t-lm').value,lieuSoir:$('t-ls').value,regime:$('t-reg').value,special:$('t-spe').value,portions:parseFloat($('t-por').value)||1,adapt:$('t-ada').value.trim(),habitudes:hab};
   const eid=$('t-id').value;
   if(eid){const i=S.temporaires.findIndex(t=>t.id===eid);if(i>=0)S.temporaires[i]={...S.temporaires[i],...data}}
   else S.temporaires.push({id:uid(),...data});
@@ -2253,8 +2448,8 @@ function renderGroupes(){
     h+=`<select onchange="updGrpLieu('${g.id}',this.value)" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:6px 10px;color:var(--txt2);font-size:12px;outline:none;font-family:inherit"><option value="">— Lieu —</option>${S.lieux.map(l=>`<option value="${l.id}" ${l.id===g.lieuId?'selected':''}>${l.nom}</option>`).join('')}</select>`;
     h+=`<span style="color:var(--txt3);font-size:11px">${tM+tS} repas</span>`;
     h+=`<button class="action-btn" onclick="deleteGroupe('${g.id}')">🗑️</button></div>`;
-    h+=`<div style="overflow-x:auto"><table style="min-width:850px"><thead><tr><th style="min-width:100px">Type</th>`;
-    DAYS_S.forEach((d,i)=>h+=`<th colspan="2" style="text-align:center;color:${DAY_C[i]}">${d}<div style="display:flex;justify-content:space-around;font-size:8px;margin-top:2px"><span>M</span><span>S</span></div></th>`);
+    h+=`<div style="overflow-x:auto"><table style="min-width:820px"><thead><tr><th style="min-width:100px;width:100px">Type</th>`;
+    DAYS_S.forEach((d,i)=>h+=`<th colspan="2" style="text-align:center;color:${DAY_C[i]};min-width:84px">${d}<div style="display:flex;justify-content:space-around;font-size:8px;margin-top:2px"><span>M</span><span>S</span></div></th>`);
     h+=`<th style="text-align:center">Total</th></tr></thead><tbody>`;
     h+=grpRow(g,'vals','valsSoir','🍽 Repas',tM+tS,false);
     h+=grpRow(g,'valsPn','valsSoirPn','🧺 Pic Nic',tPM+tPS,true);
@@ -2267,9 +2462,9 @@ function grpRow(g,fm,fs,label,total,isPn){
   const vm=g[fm]||Array(7).fill(0),vs=g[fs]||Array(7).fill(0);
   let cells='';
   for(let i=0;i<7;i++){
-    cells+=`<td colspan="2" style="padding:0"><div style="display:flex"><div style="width:50%;padding:2px;border-right:1px solid var(--border)"><div class="nombre-cell"><button class="nombre-btn" onclick="updGrpVal('${g.id}','${fm}',${i},-1)">−</button><input class="nombre-input" value="${vm[i]}" onchange="setGrpVal('${g.id}','${fm}',${i},+this.value)"><button class="nombre-btn" onclick="updGrpVal('${g.id}','${fm}',${i},1)">+</button></div></div><div style="width:50%;padding:2px"><div class="nombre-cell"><button class="nombre-btn" onclick="updGrpVal('${g.id}','${fs}',${i},-1)">−</button><input class="nombre-input" value="${vs[i]}" onchange="setGrpVal('${g.id}','${fs}',${i},+this.value)"><button class="nombre-btn" onclick="updGrpVal('${g.id}','${fs}',${i},1)">+</button></div></div></div></td>`;
+    cells+=`<td colspan="2" style="padding:2px"><div style="display:flex;gap:2px"><div style="flex:1;padding:2px;border-right:1px solid var(--border)"><div class="nombre-cell"><button class="nombre-btn" onclick="updGrpVal('${g.id}','${fm}',${i},-1)">−</button><input class="nombre-input" value="${vm[i]}" onchange="setGrpVal('${g.id}','${fm}',${i},+this.value)"><button class="nombre-btn" onclick="updGrpVal('${g.id}','${fm}',${i},1)">+</button></div></div><div style="flex:1;padding:2px"><div class="nombre-cell"><button class="nombre-btn" onclick="updGrpVal('${g.id}','${fs}',${i},-1)">−</button><input class="nombre-input" value="${vs[i]}" onchange="setGrpVal('${g.id}','${fs}',${i},+this.value)"><button class="nombre-btn" onclick="updGrpVal('${g.id}','${fs}',${i},1)">+</button></div></div></div></td>`;
   }
-  return`<tr ${isPn?'style="background:var(--amber-bg)"':''}><td style="font-weight:600;color:${isPn?'var(--amber)':'var(--txt2)'}">${label}</td>${cells}<td style="text-align:center;font-weight:700;color:${isPn?'var(--amber)':'var(--blue)'}">${total}</td></tr>`;
+  return`<tr ${isPn?'style="background:var(--amber-bg)"':''}><td style="font-weight:600;color:${isPn?'var(--amber)':'var(--txt2)'}">${label}</td>${cells}<td style="text-align:center;font-weight:800;font-size:15px;position:sticky;right:0;background:${isPn?'var(--amber-bg)':' var(--card)'};box-shadow:-2px 0 4px rgba(0,0,0,.1);color:${isPn?'var(--amber)':' var(--blue)'};min-width:50px;padding:0 10px">${total}</td></tr>`;
 }
 
 function addGroupe(){S.groupes.push({id:uid(),nom:'Nouveau groupe',lieuId:'',vals:Array(7).fill(0),valsSoir:Array(7).fill(0),valsPn:Array(7).fill(0),valsSoirPn:Array(7).fill(0)});save('groupes');renderGroupes();toast('Groupe ajouté','success')}
@@ -2297,20 +2492,31 @@ function renderMEP(){
 
 function renderMEPLieu(lieu){
   const w=wk();
-  const svc1={regimes:new Map(),adaptations:[]},svc2={regimes:new Map(),adaptations:[],pn:new Map()};
+  const svc={regimes:new Map(),adaptations:[],pn:new Map()};
   
-  const addP=(p,di,meal,sn)=>{const tgt=sn===1?svc1:svc2;if(p.adapt){let a=tgt.adaptations.find(x=>x.nom===p.nom);if(!a){a={nom:p.nom,adapt:p.adapt,regime:p.regime,midi:Array(7).fill(0),soir:Array(7).fill(0)};tgt.adaptations.push(a)}a[meal][di]++}else{const k=`${p.regime}|${p.special||''}`;if(!tgt.regimes.has(k))tgt.regimes.set(k,{regime:p.regime,special:p.special||'',midi:Array(7).fill(0),soir:Array(7).fill(0)});tgt.regimes.get(k)[meal][di]++}};
-  const addPN=(p,di,meal)=>{const k=`${p.regime}|${p.special||''}`;if(!svc2.pn.has(k))svc2.pn.set(k,{regime:p.regime,special:p.special||'',midi:Array(7).fill(0),soir:Array(7).fill(0)});svc2.pn.get(k)[meal][di]++};
+  const addP=(p,di,meal)=>{if(p.adapt){let a=svc.adaptations.find(x=>x.nom===p.nom);if(!a){a={nom:p.nom,adapt:p.adapt,regime:p.regime,midi:Array(7).fill(0),soir:Array(7).fill(0)};svc.adaptations.push(a)}a[meal][di]++}else{const k=`${p.regime}|${p.special||''}`;if(!svc.regimes.has(k))svc.regimes.set(k,{regime:p.regime,special:p.special||'',midi:Array(7).fill(0),soir:Array(7).fill(0)});svc.regimes.get(k)[meal][di]++}};
+  const addPN=(p,di,meal)=>{const k=`${p.regime}|${p.special||''}`;if(!svc.pn.has(k))svc.pn.set(k,{regime:p.regime,special:p.special||'',midi:Array(7).fill(0),soir:Array(7).fill(0)});svc.pn.get(k)[meal][di]++};
   
   for(let di=0;di<7;di++){
-    S.residents.filter(r=>S.affectations[r.id]?.midi===lieu.id).forEach(p=>{const abs=S.absences[w]?.[p.id]||[];if(!abs[di*2]){const pk=`${p.id}_${di}_midi`;if(S.piquenique[w]?.[pk])addPN(p,di,'midi');else addP(p,di,'midi',p.serviceMidi||1)}});
-    S.residents.filter(r=>S.affectations[r.id]?.soir===lieu.id).forEach(p=>{const abs=S.absences[w]?.[p.id]||[];if(!abs[di*2+1]){const pk=`${p.id}_${di}_soir`;if(S.piquenique[w]?.[pk])addPN(p,di,'soir');else addP(p,di,'soir',p.serviceSoir||1)}});
+    S.residents.filter(r=>S.affectations[r.id]?.midi===lieu.id).forEach(p=>{const abs=S.absences[w]?.[p.id]||[];if(!abs[di*2]){const pk=`${p.id}_${di}_midi`;if(S.piquenique[w]?.[pk])addPN(p,di,'midi');else addP(p,di,'midi')}});
+    S.residents.filter(r=>S.affectations[r.id]?.soir===lieu.id).forEach(p=>{const abs=S.absences[w]?.[p.id]||[];if(!abs[di*2+1]){const pk=`${p.id}_${di}_soir`;if(S.piquenique[w]?.[pk])addPN(p,di,'soir');else addP(p,di,'soir')}});
     (S.temporaires||[]).filter(t=>isTempoActive(t,S.currentWeek,S.currentYear)).forEach(t=>{
-      if(t.lieuMidi===lieu.id&&(!t.habitudes||t.habitudes[di*2]!==false)){const pk=`${t.id}_${di}_midi`;if(S.piquenique[w]?.[pk])addPN(t,di,'midi');else addP(t,di,'midi',t.serviceMidi||1)}
-      if(t.lieuSoir===lieu.id&&(!t.habitudes||t.habitudes[di*2+1]!==false)){const pk=`${t.id}_${di}_soir`;if(S.piquenique[w]?.[pk])addPN(t,di,'soir');else addP(t,di,'soir',t.serviceSoir||1)}
+      if(t.lieuMidi===lieu.id&&(!t.habitudes||t.habitudes[di*2]!==false)){const pk=`${t.id}_${di}_midi`;if(S.piquenique[w]?.[pk])addPN(t,di,'midi');else addP(t,di,'midi')}
+      if(t.lieuSoir===lieu.id&&(!t.habitudes||t.habitudes[di*2+1]!==false)){const pk=`${t.id}_${di}_soir`;if(S.piquenique[w]?.[pk])addPN(t,di,'soir');else addP(t,di,'soir')}
+    });
+    S.groupes.filter(g=>g.lieuId===lieu.id).forEach(g=>{
+      const k='Normal|';
+      if(!svc.regimes.has(k))svc.regimes.set(k,{regime:'Normal',special:'',midi:Array(7).fill(0),soir:Array(7).fill(0)});
+      svc.regimes.get(k).midi[di]+=(g.vals?.[di]||0);
+      svc.regimes.get(k).soir[di]+=(g.valsSoir?.[di]||0);
+      if((g.valsPn?.[di]||0)+(g.valsSoirPn?.[di]||0)>0){
+        if(!svc.pn.has(k))svc.pn.set(k,{regime:'Normal',special:'',midi:Array(7).fill(0),soir:Array(7).fill(0)});
+        svc.pn.get(k).midi[di]+=(g.valsPn?.[di]||0);
+        svc.pn.get(k).soir[di]+=(g.valsSoirPn?.[di]||0);
+      }
     });
   }
-  S.groupes.filter(g=>g.lieuId===lieu.id).forEach(g=>{const k='Normal|';if(!svc2.regimes.has(k))svc2.regimes.set(k,{regime:'Normal',special:'',midi:Array(7).fill(0),soir:Array(7).fill(0)});const nr=svc2.regimes.get(k);for(let i=0;i<7;i++){nr.midi[i]+=(g.vals?.[i]||0);nr.soir[i]+=(g.valsSoir?.[i]||0)}});
+
   
   // Vérifie si un service a des données réelles
   const hasData=(sd)=>{
@@ -2377,7 +2583,7 @@ function renderMEPLieu(lieu){
         const tot=d.midi.reduce((a,b)=>a+b,0)+d.soir.reduce((a,b)=>a+b,0);
         if(!tot)return;
         h+=`<tr style="background:var(--amber-bg);border-bottom:1px solid var(--border)">`;
-        h+=`<td style="padding:5px 10px"><span class="badge" style="background:var(--amber-bg);color:var(--amber)">🧺 PN ${d.regime}</span></td>`;
+        h+=`<td style="padding:5px 10px"><span class="badge" style="background:var(--amber-bg);color:var(--amber)">🧺 PN ${d.regime}${d.special?" + "+d.special:""}</span></td>`;
         for(let i=0;i<7;i++){
           h+=`<td style="text-align:center;font-weight:700;color:var(--amber);padding:5px 2px">${d.midi[i]||'—'}</td>`;
           h+=`<td style="text-align:center;font-weight:600;color:var(--amber);padding:5px 2px">${d.soir[i]||'—'}</td>`;
@@ -2400,13 +2606,7 @@ function renderMEPLieu(lieu){
     return h;
   };
 
-  // Construire le HTML du lieu en cachant les services vides
-  const h1=hasData(svc1), h2=hasData(svc2);
-  let body='';
-  if(h1) body+=`<div style="padding:10px 20px 4px;font-size:13px;font-weight:700;color:var(--txt2)">🕐 1er Service</div>${renderST(svc1,'1er')}`;
-  if(h2) body+=`<div style="padding:10px 20px 4px;font-size:13px;font-weight:700;color:var(--txt2)">🕑 2ème Service</div>${renderST(svc2,'2ème')}`;
-  if(!h1&&!h2) body='<div class="empty-state" style="padding:20px">Aucun repas ce service</div>';
-
+  const body=hasData(svc)?renderST(svc,''):'<div class="empty-state" style="padding:20px">Aucun repas</div>';
   return`<div class="table-box" style="margin-bottom:20px;overflow:hidden"><div class="table-top" style="border-bottom:2px solid ${lieu.color};padding:12px 20px"><h2 style="color:${lieu.color};font-size:16px">${lieu.nom}</h2></div>${body}</div>`;
 }
 
@@ -2425,23 +2625,38 @@ function printMEP(){
   Object.keys(sites).sort().forEach(siteName=>{
     body+=`<div class="site-title">${siteName}</div>`;
     sites[siteName].forEach(lieu=>{
-      // Recalculer svc1/svc2 comme dans renderMEPLieu
+      // Recalculer comme dans renderMEPLieu
       const w=wk();
-      const svc1={regimes:new Map(),adaptations:[]},svc2={regimes:new Map(),adaptations:[],pn:new Map()};
-      const addP=(p,di,meal,sn)=>{const tgt=sn===1?svc1:svc2;if(p.adapt){let a=tgt.adaptations.find(x=>x.nom===p.nom);if(!a){a={nom:p.nom,adapt:p.adapt,regime:p.regime,midi:Array(7).fill(0),soir:Array(7).fill(0)};tgt.adaptations.push(a)}a[meal][di]++}else{const k=`${p.regime}|${p.special||''}`;if(!tgt.regimes.has(k))tgt.regimes.set(k,{regime:p.regime,special:p.special||'',midi:Array(7).fill(0),soir:Array(7).fill(0)});tgt.regimes.get(k)[meal][di]++}};
-      const addPN=(p,di,meal)=>{const k=`${p.regime}|${p.special||''}`;if(!svc2.pn.has(k))svc2.pn.set(k,{regime:p.regime,special:p.special||'',midi:Array(7).fill(0),soir:Array(7).fill(0)});svc2.pn.get(k)[meal][di]++};
+      const svc={regimes:new Map(),adaptations:[],pn:new Map()};
+
+      const addP=(p,di,meal)=>{if(p.adapt){let a=svc.adaptations.find(x=>x.nom===p.nom);if(!a){a={nom:p.nom,adapt:p.adapt,regime:p.regime,midi:Array(7).fill(0),soir:Array(7).fill(0)};svc.adaptations.push(a)}a[meal][di]++}else{const k=`${p.regime}|${p.special||''}`;if(!svc.regimes.has(k))svc.regimes.set(k,{regime:p.regime,special:p.special||'',midi:Array(7).fill(0),soir:Array(7).fill(0)});svc.regimes.get(k)[meal][di]++}};
+      const addPN=(p,di,meal)=>{const k=`${p.regime}|${p.special||''}`;if(!svc.pn.has(k))svc.pn.set(k,{regime:p.regime,special:p.special||'',midi:Array(7).fill(0),soir:Array(7).fill(0)});svc.pn.get(k)[meal][di]++};
       for(let di=0;di<7;di++){
-        S.residents.filter(r=>S.affectations[r.id]?.midi===lieu.id).forEach(p=>{const abs=S.absences[w]?.[p.id]||[];if(!abs[di*2]){const pk=`${p.id}_${di}_midi`;if(S.piquenique[w]?.[pk])addPN(p,di,'midi');else addP(p,di,'midi',p.serviceMidi||1)}});
-        S.residents.filter(r=>S.affectations[r.id]?.soir===lieu.id).forEach(p=>{const abs=S.absences[w]?.[p.id]||[];if(!abs[di*2+1]){const pk=`${p.id}_${di}_soir`;if(S.piquenique[w]?.[pk])addPN(p,di,'soir');else addP(p,di,'soir',p.serviceSoir||1)}});
+        S.residents.filter(r=>S.affectations[r.id]?.midi===lieu.id).forEach(p=>{const abs=S.absences[w]?.[p.id]||[];if(!abs[di*2]){const pk=`${p.id}_${di}_midi`;if(S.piquenique[w]?.[pk])addPN(p,di,'midi');else addP(p,di,'midi')}});
+        S.residents.filter(r=>S.affectations[r.id]?.soir===lieu.id).forEach(p=>{const abs=S.absences[w]?.[p.id]||[];if(!abs[di*2+1]){const pk=`${p.id}_${di}_soir`;if(S.piquenique[w]?.[pk])addPN(p,di,'soir');else addP(p,di,'soir')}});
         (S.temporaires||[]).filter(t=>isTempoActive(t,week,year)).forEach(t=>{
-          if(t.lieuMidi===lieu.id&&(!t.habitudes||t.habitudes[di*2]!==false)){const pk=`${t.id}_${di}_midi`;if(S.piquenique[w]?.[pk])addPN(t,di,'midi');else addP(t,di,'midi',t.serviceMidi||1)}
-          if(t.lieuSoir===lieu.id&&(!t.habitudes||t.habitudes[di*2+1]!==false)){const pk=`${t.id}_${di}_soir`;if(S.piquenique[w]?.[pk])addPN(t,di,'soir');else addP(t,di,'soir',t.serviceSoir||1)}
+          if(t.lieuMidi===lieu.id&&(!t.habitudes||t.habitudes[di*2]!==false)){const pk=`${t.id}_${di}_midi`;if(S.piquenique[w]?.[pk])addPN(t,di,'midi');else addP(t,di,'midi')}
+          if(t.lieuSoir===lieu.id&&(!t.habitudes||t.habitudes[di*2+1]!==false)){const pk=`${t.id}_${di}_soir`;if(S.piquenique[w]?.[pk])addPN(t,di,'soir');else addP(t,di,'soir')}
         });
       }
-      S.groupes.filter(g=>g.lieuId===lieu.id).forEach(g=>{const k='Normal|';if(!svc2.regimes.has(k))svc2.regimes.set(k,{regime:'Normal',special:'',midi:Array(7).fill(0),soir:Array(7).fill(0)});const nr=svc2.regimes.get(k);for(let i=0;i<7;i++){nr.midi[i]+=(g.vals?.[i]||0);nr.soir[i]+=(g.valsSoir?.[i]||0)}});
+      // Groupes : toujours au 1er service
 
+      // Groupes
+      for(let di=0;di<7;di++){
+        S.groupes.filter(g=>g.lieuId===lieu.id).forEach(g=>{
+          const k='Normal|';
+          if(!svc.regimes.has(k))svc.regimes.set(k,{regime:'Normal',special:'',midi:Array(7).fill(0),soir:Array(7).fill(0)});
+          svc.regimes.get(k).midi[di]+=(g.vals?.[di]||0);
+          svc.regimes.get(k).soir[di]+=(g.valsSoir?.[di]||0);
+          if((g.valsPn?.[di]||0)+(g.valsSoirPn?.[di]||0)>0){
+            if(!svc.pn.has(k))svc.pn.set(k,{regime:'Normal',special:'',midi:Array(7).fill(0),soir:Array(7).fill(0)});
+            svc.pn.get(k).midi[di]+=(g.valsPn?.[di]||0);
+            svc.pn.get(k).soir[di]+=(g.valsSoirPn?.[di]||0);
+          }
+        });
+      }
       const hasD=(sd)=>{let t=0;[...sd.regimes.values()].forEach(d=>{t+=d.midi.reduce((a,b)=>a+b,0)+d.soir.reduce((a,b)=>a+b,0)});sd.adaptations.forEach(a=>{t+=a.midi.reduce((a,b)=>a+b,0)+a.soir.reduce((a,b)=>a+b,0)});if(sd.pn)[...sd.pn.values()].forEach(d=>{t+=d.midi.reduce((a,b)=>a+b,0)+d.soir.reduce((a,b)=>a+b,0)});return t>0};
-      if(!hasD(svc1)&&!hasD(svc2))return;
+      if(!hasD(svc))return;
 
       const mkTable=(sd,svcName)=>{
         if(!hasD(sd))return'';
@@ -2449,59 +2664,65 @@ function printMEP(){
         if(!entries.length&&!sd.adaptations.length)return'';
         const tM=Array(7).fill(0),tS=Array(7).fill(0);
         let t=`<div class="svc-title">${svcName}</div><table><thead><tr><th class="regime-col">RÉGIME</th>`;
-        DAYS_S.forEach((d,i)=>t+=`<th colspan="2" style="color:${DAY_COLORS[i]}">${d}</th>`);
+        DAYS_S.forEach((d,i)=>t+=`<th colspan="2">${d}</th>`);
         t+=`<th class="tot-col">TOT</th></tr><tr><th></th>`;
-        DAYS_S.forEach((_,i)=>t+=`<th class="m-col" style="background:${DAY_COLORS[i]};color:#fff">M</th><th class="s-col" style="background:${DAY_COLORS[i]}33;color:${DAY_COLORS[i]}">S</th>`);
+        DAYS_S.forEach((_,i)=>t+=`<th class="m-col">M</th><th class="s-col">S</th>`);
         t+=`<th></th></tr></thead><tbody>`;
         entries.forEach(([k,d])=>{
           const tot=d.midi.reduce((a,b)=>a+b,0)+d.soir.reduce((a,b)=>a+b,0);
           t+=`<tr><td class="regime-col">${d.regime}${d.special?' + '+d.special:''}</td>`;
-          for(let i=0;i<7;i++){t+=`<td class="m-cell" style="background:${DAY_COLORS[i]}10">${d.midi[i]||'—'}</td><td class="s-cell" style="background:${DAY_COLORS[i]}25">${d.soir[i]||'—'}</td>`;tM[i]+=d.midi[i];tS[i]+=d.soir[i]}
+          for(let i=0;i<7;i++){const mv=d.midi[i]||0,sv=d.soir[i]||0;t+=`<td class="m-cell">${mv||'<span class=\"empty-dash\">—</span>'}</td><td class="s-cell">${sv||'<span class=\"empty-dash\">—</span>'}</td>`;tM[i]+=mv;tS[i]+=sv}
           t+=`<td class="tot-cell">${tot}</td></tr>`;
         });
         sd.adaptations.filter(a=>a.midi.reduce((x,y)=>x+y,0)+a.soir.reduce((x,y)=>x+y,0)>0).forEach(a=>{
           const tot=a.midi.reduce((x,y)=>x+y,0)+a.soir.reduce((x,y)=>x+y,0);
           t+=`<tr class="adapt-row"><td class="regime-col">⚠ ${a.nom} (${a.adapt})</td>`;
-          for(let i=0;i<7;i++){t+=`<td class="m-cell">${a.midi[i]||'—'}</td><td class="s-cell">${a.soir[i]||'—'}</td>`;tM[i]+=a.midi[i];tS[i]+=a.soir[i]}
+          for(let i=0;i<7;i++){const av=a.midi[i]||0,sv=a.soir[i]||0;t+=`<td class="m-cell">${av||'—'}</td><td class="s-cell">${sv||'—'}</td>`;tM[i]+=av;tS[i]+=sv}
           t+=`<td class="tot-cell">${tot}</td></tr>`;
         });
-        if(sd.pn)[...sd.pn.entries()].forEach(([k,d])=>{const tot=d.midi.reduce((a,b)=>a+b,0)+d.soir.reduce((a,b)=>a+b,0);if(!tot)return;t+=`<tr class="pn-row"><td class="regime-col">🧺 PN ${d.regime}</td>`;for(let i=0;i<7;i++){t+=`<td class="m-cell">${d.midi[i]||'—'}</td><td class="s-cell">${d.soir[i]||'—'}</td>`;tM[i]+=d.midi[i];tS[i]+=d.soir[i]}t+=`<td class="tot-cell">${tot}</td></tr>`});
+        if(sd.pn)[...sd.pn.entries()].forEach(([k,d])=>{const tot=d.midi.reduce((a,b)=>a+b,0)+d.soir.reduce((a,b)=>a+b,0);if(!tot)return;t+=`<tr class="pn-row"><td class="regime-col">🧺 PN ${d.regime}${d.special?" + "+d.special:""}</td>`;for(let i=0;i<7;i++){t+=`<td class="m-cell">${d.midi[i]||'—'}</td><td class="s-cell">${d.soir[i]||'—'}</td>`;tM[i]+=d.midi[i];tS[i]+=d.soir[i]}t+=`<td class="tot-cell">${tot}</td></tr>`});
         const gt=tM.reduce((a,b)=>a+b,0)+tS.reduce((a,b)=>a+b,0);
         t+=`<tr class="total-row"><td>TOTAL</td>`;
-        for(let i=0;i<7;i++)t+=`<td style="color:${DAY_COLORS[i]}">${tM[i]||'—'}</td><td style="color:${DAY_COLORS[i]}">${tS[i]||'—'}</td>`;
+        for(let i=0;i<7;i++)t+=`<td>${tM[i]||'—'}</td><td>${tS[i]||'—'}</td>`;
         t+=`<td class="tot-cell grand-tot">${gt}</td></tr></tbody></table>`;
         return t;
       };
 
       body+=`<div class="lieu-block" style="border-left:3px solid ${lieu.color}">`;
       body+=`<div class="lieu-title" style="color:${lieu.color}">${lieu.nom}</div>`;
-      body+=mkTable(svc1,'🕐 1er Service');
-      body+=mkTable(svc2,'🕑 2ème Service');
+      body+=mkTable(svc,'');
       body+=`</div>`;
     });
   });
 
   const css=`
-    @page{margin:8mm;size:A4 portrait}
+    @page{margin:10mm;size:A4 portrait}
     *{margin:0;padding:0;box-sizing:border-box}
-    body{font-family:Arial,sans-serif;font-size:7.5px;color:#111}
-    h1{text-align:center;font-size:13px;font-weight:800;margin-bottom:2px}
-    .site-title{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#666;border-bottom:1px solid #ccc;margin:8px 0 4px;padding-bottom:2px}
-    .lieu-block{margin-bottom:8px;padding-left:6px}
-    .lieu-title{font-size:9px;font-weight:700;margin-bottom:3px}
-    .svc-title{font-size:7.5px;font-weight:700;color:#555;margin:3px 0 2px}
-    table{width:100%;border-collapse:collapse;margin-bottom:4px}
-    th,td{border:1px solid #ddd;padding:2px 3px;text-align:center}
-    th{font-size:7px;font-weight:700}
-    .regime-col{text-align:left;min-width:90px;font-weight:600}
-    .m-col,.s-col{width:18px;font-size:6px}
-    .m-cell{font-weight:700}
-    .s-cell{color:#555}
-    .tot-col,.tot-cell{background:#e8f4fd;color:#1a56db;font-weight:800;min-width:24px}
-    .adapt-row td{color:#d97706;font-style:italic}
-    .pn-row td{background:#fffbeb;color:#d97706}
-    .total-row td{background:#f3f4f6;font-weight:800;border-top:2px solid #999}
-    .grand-tot{background:#1a56db;color:#fff !important}
+    body{font-family:Arial,sans-serif;font-size:11px;color:#000}
+    h1{text-align:center;font-size:18px;font-weight:800;margin-bottom:3px;text-transform:uppercase;letter-spacing:1px}
+    h1 span{font-size:12px;font-weight:400;display:block;margin-top:2px}
+    .site-title{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:2px;margin:12px 0 6px;padding:4px 0;background:#000;color:#fff;text-align:center}
+    .lieu-block{
+      margin-bottom:10px;
+      page-break-inside:avoid;
+      break-inside:avoid;
+    }
+    .lieu-title{font-size:13px;font-weight:800;border-bottom:2px solid #000;padding-bottom:3px;margin-bottom:4px;text-transform:uppercase}
+    .svc-title{font-size:11px;font-weight:800;margin:6px 0 3px;text-transform:uppercase;letter-spacing:.5px}
+    table{width:100%;border-collapse:collapse;margin-bottom:6px}
+    th,td{border:1px solid #999;padding:5px 6px;text-align:center}
+    thead tr:first-child th{font-size:11px;font-weight:800;background:#333;color:#fff;padding:5px 4px}
+    thead tr:last-child th{font-size:9px;font-weight:700;background:#eee;color:#333;padding:3px 2px}
+    .regime-col{text-align:left;min-width:110px;font-weight:700;font-size:11px}
+    td{font-size:12px;font-weight:600}
+    .m-cell{font-weight:800;background:#f5f5f5}
+    .s-cell{font-weight:600;background:#fff}
+    .tot-col,.tot-cell{background:#333;color:#fff;font-weight:800;font-size:13px;border:2px solid #000}
+    .adapt-row td{font-style:italic;background:#f9f9f9}
+    .pn-row td{background:#f0f0f0}
+    .total-row td{background:#555;color:#fff;font-weight:800;font-size:13px;border-top:3px solid #000}
+    .grand-tot{background:#000;color:#fff !important;font-size:14px}
+    .empty-dash{color:#ccc;font-weight:400}
   `;
 
   const pw=window.open('','_blank');
@@ -2520,7 +2741,9 @@ function renderHist(){
   let h='<div class="table-box"><table><thead><tr><th>N°</th><th>Date</th><th>Période</th><th>Modifications</th><th style="text-align:right">Actions</th></tr></thead><tbody>';
   bons.forEach(b=>{
     const d=new Date(b.date);
-    h+=`<tr><td style="font-weight:700">N°${b.bonNumber}</td><td>${d.toLocaleDateString('fr-FR')} ${d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</td><td>S${b.week} (${b.dateDebut} → ${b.dateFin})</td><td><span class="badge" style="background:var(--amber-bg);color:var(--amber)">${b.modificationsCount} modif${b.modificationsCount>1?'s':''}</span></td>`;
+    const emailTag=b.sentByEmail?`<span class="badge" style="background:var(--green-bg);color:var(--green);margin-left:6px">📧 Envoyé cuisine</span>`:'';
+    const byTag=b.sentBy?`<span style="font-size:11px;color:var(--txt3)"> par ${b.sentBy}</span>`:'';
+    h+=`<tr><td style="font-weight:700">N°${b.bonNumber}</td><td>${d.toLocaleDateString('fr-FR')} ${d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}${byTag}</td><td>S${b.week} (${b.dateDebut} → ${b.dateFin})</td><td><span class="badge" style="background:var(--amber-bg);color:var(--amber)">${b.modificationsCount} modif${b.modificationsCount>1?'s':''}</span>${emailTag}</td>`;
     h+=`<td style="text-align:right"><button class="action-btn" onclick="deleteBon('${b.id}')" title="Supprimer">🗑️</button></td></tr>`;
   });
   h+=`</tbody></table></div>`;c.innerHTML=h;
@@ -3074,7 +3297,7 @@ function applyUIPermissions(){
   // Boutons "+" dans les pages de config
   document.querySelectorAll('.perm-edit').forEach(el=>{el.style.display=p.canEdit?'':'none'});
   document.querySelectorAll('.perm-absences').forEach(el=>{el.style.display=(p.canAbsences||p.canEdit)?'':'none'});
-  document.querySelectorAll('.perm-commande').forEach(el=>{el.style.display=p.canCommande?'':'none'});
+  // perm-commande supprimé — tout le monde peut envoyer la commande
   document.querySelectorAll('.perm-reporting').forEach(el=>{el.style.display=p.canReporting?'':'none'});
   document.querySelectorAll('.perm-admin').forEach(el=>{el.style.display=p.canAdmin?'':'none'});
 }
@@ -3218,10 +3441,10 @@ function countRepasByDayFull(dateObj, lieuId, service, texture){
     count++;
   });
 
-  // Groupes uniquement pour Normal
+  // Groupes (repas + pique-nique comptent comme repas servis)
   if(texture==='Normal'){
     S.groupes.filter(g=>g.lieuId===lieuId).forEach(g=>{
-      count+=service==='midi'?(g.vals?.[dayIdx]||0):(g.valsSoir?.[dayIdx]||0);
+      count+=service==='midi'?((g.vals?.[dayIdx]||0)+(g.valsPn?.[dayIdx]||0)):((g.valsSoir?.[dayIdx]||0)+(g.valsSoirPn?.[dayIdx]||0));
     });
   }
 
