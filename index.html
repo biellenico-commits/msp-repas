@@ -1,0 +1,3182 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+<meta name="description" content="Application de gestion des repas pour la Maison Saint-Paul - ANDAPEI Lot-et-Garonne">
+<meta name="theme-color" content="#1a56db">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="MSP Repas">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="logo-andapei.png">
+<title>MSP Repas — Maison Saint Paul</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,500;0,9..40,700;0,9..40,800;1,9..40,400&display=swap" rel="stylesheet">
+<script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+<!-- Supabase -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!-- EmailJS -->
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#f8f9fc;--bg2:#ffffff;--panel:#ffffff;--card:#ffffff;
+  --border:#e5e7eb;--border2:#d1d5db;
+  --txt:#111827;--txt2:#6b7280;--txt3:#9ca3af;
+  --blue:#1a56db;--blue-bg:#eff6ff;--blue-border:#bfdbfe;
+  --green:#059669;--green-bg:#ecfdf5;--green-border:#a7f3d0;
+  --red:#dc2626;--red-bg:#fef2f2;--red-border:#fecaca;
+  --amber:#d97706;--amber-bg:#fffbeb;--amber-border:#fde68a;
+  --teal:#0891b2;--teal-bg:#ecfeff;--teal-border:#a5f3fc;
+  --purple:#7c3aed;--purple-bg:#f5f3ff;--purple-border:#c4b5fd;
+  --shadow-sm:0 1px 2px rgba(0,0,0,.05);
+  --shadow:0 1px 3px rgba(0,0,0,.1),0 1px 2px rgba(0,0,0,.06);
+  --shadow-md:0 4px 6px -1px rgba(0,0,0,.1),0 2px 4px -2px rgba(0,0,0,.1);
+  --radius:10px;--radius-lg:14px;
+  --lundi:#3b82f6;--mardi:#10b981;--mercredi:#f59e0b;--jeudi:#ef4444;
+  --vendredi:#8b5cf6;--samedi:#ec4899;--dimanche:#06b6d4;
+}
+body{background:var(--bg);color:var(--txt);font-family:'DM Sans',system-ui,-apple-system,sans-serif;display:flex;min-height:100vh;font-size:14px;line-height:1.5}
+
+/* LOADING SCREEN */
+#loading-screen{position:fixed;inset:0;background:#fff;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px}
+#loading-screen .spin{width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin 0.8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#loading-screen p{color:var(--txt2);font-size:14px;font-weight:500}
+#loading-screen.hidden{display:none}
+
+/* SYNC INDICATOR */
+.sync-indicator{position:fixed;top:14px;right:24px;z-index:500;display:flex;align-items:center;gap:6px;background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:4px 12px;font-size:11px;font-weight:600;color:var(--txt3);box-shadow:var(--shadow-sm);transition:all .3s}
+.sync-dot{width:7px;height:7px;border-radius:50%;background:var(--green);flex-shrink:0}
+.sync-dot.syncing{background:var(--amber);animation:pulse 1s infinite}
+.sync-dot.error{background:var(--red)}
+.sync-dot.offline{background:var(--txt3)}
+
+/* === SIDEBAR === */
+.sidebar{width:260px;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;height:100vh;position:sticky;top:0;overflow-y:auto;flex-shrink:0;z-index:50}
+.logo-area{padding:20px 20px 16px;border-bottom:1px solid var(--border)}
+.logo-area img{max-width:160px;height:auto}
+.app-title{font-weight:800;font-size:15px;margin-top:12px;color:var(--txt);letter-spacing:-.3px}
+.app-sub{font-size:12px;color:var(--txt3);margin-top:2px}
+.week-selector{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;flex-direction:column;gap:8px}
+.week-selector label{font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--txt3);font-weight:700}
+.week-row{display:flex;gap:6px}
+.week-row select{flex:1;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--txt);font-size:13px;font-weight:500;cursor:pointer;outline:none;font-family:inherit;transition:border-color .2s}
+.week-row select:focus{border-color:var(--blue)}
+.nav{flex:1;padding:12px 12px 0}
+.nav-label{font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:var(--txt3);font-weight:700;padding:12px 10px 6px}
+.nav-btn{width:100%;display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;border:none;background:transparent;color:var(--txt2);font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;text-align:left;font-family:inherit}
+.nav-btn:hover{background:var(--bg);color:var(--txt)}
+.nav-btn.active{background:var(--blue-bg);color:var(--blue);font-weight:700}
+.nav-btn .nav-icon{width:20px;text-align:center;font-size:15px;flex-shrink:0}
+.sidebar-footer{padding:14px 20px;border-top:1px solid var(--border);font-size:11px;color:var(--txt3);text-align:center;font-weight:500}
+.crown-btn{position:absolute;top:16px;right:16px;background:none;border:none;font-size:18px;cursor:pointer;opacity:.2;transition:all .2s;padding:4px}
+.crown-btn:hover{opacity:1;transform:scale(1.15)}
+
+/* === MAIN === */
+main{flex:1;overflow-y:auto;padding:32px 40px;max-width:1400px}
+.view{display:none}.view.active{display:block;animation:fadeUp .25s ease}
+@keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.page-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;gap:16px}
+h1{font-size:26px;font-weight:800;letter-spacing:-.5px;color:var(--txt)}
+.subtitle{font-size:13px;color:var(--txt2);margin-top:3px;font-weight:400}
+
+/* === CARDS === */
+.cards-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:28px}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;box-shadow:var(--shadow-sm);position:relative;overflow:hidden}
+.stat-card::after{content:'';position:absolute;top:0;left:0;right:0;height:3px}
+.stat-card.c-blue::after{background:var(--blue)}.stat-card.c-green::after{background:var(--green)}
+.stat-card.c-amber::after{background:var(--amber)}.stat-card.c-red::after{background:var(--red)}
+.stat-card.c-teal::after{background:var(--teal)}
+.stat-label{font-size:11px;text-transform:uppercase;letter-spacing:1.2px;color:var(--txt3);font-weight:700;margin-bottom:8px}
+.stat-value{font-size:30px;font-weight:800;line-height:1;letter-spacing:-1px}
+
+/* === TABLES === */
+.table-box{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;box-shadow:var(--shadow-sm);margin-bottom:24px}
+.table-top{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.table-top h2{font-size:15px;font-weight:700}
+table{width:100%;border-collapse:collapse}
+th{background:var(--bg);padding:10px 14px;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--txt3);font-weight:700;text-align:left;border-bottom:1px solid var(--border)}
+td{padding:10px 14px;font-size:13px;border-bottom:1px solid var(--border);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(0,0,0,.015)}
+
+/* === BUTTONS === */
+.btn{padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;border:none;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all .15s;font-family:inherit;white-space:nowrap}
+.btn-primary{background:var(--blue);color:#fff}.btn-primary:hover{background:#1e40af}
+.btn-outline{background:transparent;color:var(--txt2);border:1px solid var(--border)}.btn-outline:hover{background:var(--bg);color:var(--txt);border-color:var(--border2)}
+.btn-danger{background:var(--red);color:#fff}.btn-danger:hover{background:#b91c1c}
+.btn-success{background:var(--green);color:#fff}
+.btn-amber{background:var(--amber);color:#fff}
+.btn-purple{background:var(--purple);color:#fff}
+.btn-sm{padding:6px 12px;font-size:12px}
+.btn-group{display:flex;gap:8px;flex-wrap:wrap}
+.action-btn{width:30px;height:30px;border-radius:6px;border:none;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:14px;transition:all .15s;background:transparent}
+.action-btn:hover{background:var(--bg)}
+
+/* === BADGES === */
+.badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap}
+.tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;text-transform:uppercase}
+.tempo-badge{background:var(--teal-bg);color:var(--teal);padding:3px 8px;border-radius:6px;font-size:10px;font-weight:700;letter-spacing:.5px}
+
+/* === FORMS === */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.form-group{display:flex;flex-direction:column;gap:5px}
+.form-group.full{grid-column:1/-1}
+.form-group label{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--txt2);font-weight:700}
+.form-group input,.form-group select,.form-group textarea{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--txt);font-size:13px;outline:none;transition:border-color .2s;font-family:inherit}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(26,86,219,.1)}
+.form-group textarea{resize:vertical;min-height:80px}
+.checkbox-label{display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:500}
+
+/* === MODALS === */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);backdrop-filter:blur(4px);z-index:200;align-items:center;justify-content:center;padding:16px}
+.modal-overlay.open{display:flex}
+.modal{background:var(--panel);border:1px solid var(--border);border-radius:16px;width:100%;max-width:600px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.2);animation:modalIn .2s ease}
+@keyframes modalIn{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:none}}
+.modal-head{padding:20px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.modal-head h2{font-size:18px;font-weight:700}
+.modal-close{width:32px;height:32px;border-radius:8px;background:var(--bg);border:none;color:var(--txt2);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.modal-close:hover{background:var(--border);color:var(--txt)}
+.modal-body{padding:24px}
+.modal-foot{padding:16px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px}
+
+/* === FILTERS === */
+.filter-bar{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap}
+.filter-btn{padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;border:1px solid var(--border);background:var(--card);color:var(--txt2);cursor:pointer;transition:all .15s;font-family:inherit}
+.filter-btn:hover{color:var(--txt);border-color:var(--border2)}
+.filter-btn.active{background:var(--blue-bg);border-color:var(--blue-border);color:var(--blue)}
+
+/* === REPAS BUTTONS === */
+.repas-btn{padding:6px 4px;border-radius:6px;font-size:11px;font-weight:700;border:1px solid;cursor:pointer;width:100%;transition:all .1s;font-family:inherit;min-height:32px}
+.repas-ok{background:var(--green-bg);color:var(--green);border-color:var(--green-border)}
+.repas-ok:hover{background:#d1fae5}
+.repas-abs{background:var(--red-bg);color:var(--red);border-color:var(--red-border)}
+.repas-pn{background:var(--amber-bg);color:var(--amber);border-color:var(--amber-border)}
+
+/* === SEARCH === */
+.search-input{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:7px 12px 7px 34px;color:var(--txt);font-size:13px;outline:none;font-family:inherit;width:220px;transition:border-color .2s;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%239ca3af' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:10px center;background-size:16px}
+.search-input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(26,86,219,.08)}
+
+/* === INFO BOX === */
+.info-box{background:var(--blue-bg);border:1px solid var(--blue-border);border-radius:var(--radius);padding:14px 18px;font-size:13px;color:var(--blue);margin-bottom:20px;display:flex;gap:10px;align-items:center;font-weight:500}
+
+/* === TOAST === */
+.toast-box{position:fixed;top:24px;right:24px;z-index:1000;display:flex;flex-direction:column;gap:10px;pointer-events:none}
+.toast{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:14px 18px;min-width:280px;max-width:380px;display:flex;align-items:center;gap:10px;box-shadow:var(--shadow-md);animation:toastIn .25s ease;pointer-events:all;font-size:13px;font-weight:500}
+.toast.t-success{border-left:4px solid var(--green)}.toast.t-error{border-left:4px solid var(--red)}
+.toast.t-warn{border-left:4px solid var(--amber)}.toast.t-info{border-left:4px solid var(--blue)}
+.toast.hiding{animation:toastOut .25s ease forwards}
+@keyframes toastIn{from{transform:translateX(100%);opacity:0}to{transform:none;opacity:1}}
+@keyframes toastOut{to{transform:translateX(100%);opacity:0}}
+
+/* === SAVE BAR === */
+.save-bar{position:fixed;bottom:0;left:0;right:0;background:var(--panel);border-top:1px solid var(--border);padding:8px 24px;display:flex;align-items:center;gap:12px;z-index:100;font-size:12px;box-shadow:0 -1px 3px rgba(0,0,0,.05)}
+.save-dot{width:8px;height:8px;border-radius:50%;background:var(--txt3);flex-shrink:0}
+.save-dot.saved{background:var(--green)}.save-dot.saving{background:var(--amber);animation:pulse 1s infinite}.save-dot.error{background:var(--red)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* === NOMBRE CELL (groupes) === */
+.nombre-cell{display:flex;align-items:center;justify-content:center;gap:0}
+.nombre-btn{width:24px;height:28px;background:var(--bg);border:1px solid var(--border);color:var(--txt2);cursor:pointer;font-size:14px;font-weight:700;display:flex;align-items:center;justify-content:center;transition:all .1s}
+.nombre-btn:first-child{border-radius:6px 0 0 6px}.nombre-btn:last-child{border-radius:0 6px 6px 0}
+.nombre-btn:hover{background:var(--blue-bg);color:var(--blue)}
+.nombre-input{width:32px;text-align:center;background:var(--bg);border:1px solid var(--border);border-left:none;border-right:none;color:var(--txt);font-size:12px;font-weight:700;padding:3px 0;outline:none;font-family:inherit}
+
+/* === SECTION DIVIDER === */
+.section-divider{font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;margin:24px 0 16px;display:flex;align-items:center;gap:12px;color:var(--txt2)}
+.section-divider::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* === GROUPE CARD === */
+.groupe-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:20px;box-shadow:var(--shadow-sm)}
+.groupe-head{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+
+/* === LIEU CARD === */
+.lieux-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}
+.lieu-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;transition:transform .15s;box-shadow:var(--shadow-sm)}
+.lieu-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-md)}
+.lieu-card-head{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.lieu-card-body{padding:14px 16px}
+.lieu-stat{display:flex;justify-content:space-between;margin-bottom:6px;font-size:13px}
+
+/* === CALENDAR === */
+.cal-grid-wrap{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px}
+.month-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px;box-shadow:var(--shadow-sm)}
+.month-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:10px;color:var(--txt2)}
+.cal-g{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.cal-dh{text-align:center;font-size:9px;font-weight:700;color:var(--txt3);padding-bottom:4px}
+.cal-d{aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:4px;font-size:10px;font-weight:500}
+
+/* === BANDEAU ROUGE === */
+.bandeau-print{background:var(--red);color:#fff;padding:14px 20px;margin-bottom:20px;border-radius:var(--radius);text-align:center;box-shadow:0 2px 8px rgba(220,38,38,.25)}
+.bandeau-print strong{font-size:16px}
+.bandeau-print p{font-size:13px;opacity:.9;margin-top:4px}
+
+/* === EMPTY STATE === */
+.empty-state{padding:48px;text-align:center;color:var(--txt3);font-size:14px}
+
+/* === SCROLLBAR === */
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+
+/* === MOBILE MENU === */
+.mobile-menu-btn{display:none;position:fixed;top:14px;left:14px;z-index:1001;width:44px;height:44px;background:var(--panel);border:1px solid var(--border);border-radius:10px;align-items:center;justify-content:center;cursor:pointer;box-shadow:var(--shadow-md)}
+.hamburger{width:22px;height:2px;background:var(--txt);position:relative;transition:all .3s}
+.hamburger::before,.hamburger::after{content:'';position:absolute;width:22px;height:2px;background:var(--txt);transition:all .3s}
+.hamburger::before{top:-6px}.hamburger::after{top:6px}
+.mobile-menu-btn.active .hamburger{background:transparent}
+.mobile-menu-btn.active .hamburger::before{top:0;transform:rotate(45deg)}
+.mobile-menu-btn.active .hamburger::after{top:0;transform:rotate(-45deg)}
+.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:49}
+
+/* === RESPONSIVE === */
+@media(max-width:900px){
+  body{padding-bottom:56px}
+  .mobile-menu-btn{display:flex}
+  .sidebar-overlay.active{display:block}
+  .sidebar{position:fixed;left:0;top:0;width:280px;transform:translateX(-100%);transition:transform .3s ease;z-index:100;box-shadow:4px 0 12px rgba(0,0,0,.15)}
+  .sidebar.mobile-open{transform:translateX(0)}
+  main{padding:72px 16px 16px;margin-left:0}
+  .cards-grid{grid-template-columns:repeat(2,1fr)}
+  .page-header{flex-direction:column;gap:12px;align-items:stretch}
+  .table-box{overflow-x:auto}
+  table{min-width:600px}
+  .modal{max-width:100%;max-height:100vh;border-radius:0}
+  .btn{padding:10px 18px;font-size:13px}
+  .repas-btn{padding:8px;font-size:12px;min-height:40px}
+  .filter-bar{flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px}
+  .form-grid{grid-template-columns:1fr}
+  .sync-indicator{top:auto;bottom:56px;right:12px}
+}
+@media(max-width:480px){
+  .cards-grid{grid-template-columns:1fr}
+  .stat-value{font-size:24px}
+}
+
+/* === PRINT STYLES === */
+@media print{
+  .sidebar,.save-bar,.mobile-menu-btn,.sidebar-overlay,.toast-box,.btn-group,.filter-bar,.page-header .btn,.modal-overlay,.sync-indicator{display:none!important}
+  main{padding:0!important;max-width:100%!important}
+  body{background:#fff!important}
+  .table-box{box-shadow:none!important;border:1px solid #ccc!important}
+}
+</style>
+</head>
+<body>
+
+<!-- Loading Screen -->
+
+<!-- LOGIN SCREEN -->
+<div id="login-screen" style="display:none;position:fixed;inset:0;background:linear-gradient(135deg,#1e3a8a 0%,#1a56db 50%,#0891b2 100%);z-index:9998;align-items:center;justify-content:center;padding:16px">
+  <div style="background:#fff;border-radius:20px;padding:40px;width:100%;max-width:420px;box-shadow:0 25px 60px rgba(0,0,0,.3)">
+    <div style="text-align:center;margin-bottom:32px">
+      <img src="logo-andapei.png" alt="ANDAPEI" style="max-width:160px;height:auto;margin-bottom:16px">
+      <h1 style="font-size:20px;font-weight:800;color:#111827;margin-bottom:4px">Maison Saint Paul</h1>
+      <p style="font-size:13px;color:#6b7280">Gestion des repas</p>
+    </div>
+
+    <!-- Tabs -->
+    <div style="display:flex;background:#f3f4f6;border-radius:10px;padding:4px;margin-bottom:24px">
+      <button id="tab-login-btn" onclick="switchLoginTab('login')" style="flex:1;padding:8px;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;background:#fff;color:#1a56db;box-shadow:0 1px 3px rgba(0,0,0,.1);font-family:inherit;transition:all .2s">Connexion</button>
+      <button id="tab-request-btn" onclick="switchLoginTab('request')" style="flex:1;padding:8px;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;background:transparent;color:#6b7280;font-family:inherit;transition:all .2s">Demander un accès</button>
+    </div>
+
+    <!-- Login Form -->
+    <div id="tab-login">
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <div>
+          <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#6b7280;display:block;margin-bottom:5px">Email</label>
+          <input type="email" id="login-email" placeholder="votre@email.fr" onkeypress="if(event.key==='Enter')doLogin()" style="width:100%;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:11px 14px;font-size:14px;outline:none;font-family:inherit;transition:border-color .2s" onfocus="this.style.borderColor='#1a56db'" onblur="this.style.borderColor='#e5e7eb'">
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#6b7280;display:block;margin-bottom:5px">Mot de passe</label>
+          <div style="position:relative">
+            <input type="password" id="login-password" placeholder="••••••••" onkeypress="if(event.key==='Enter')doLogin()" style="width:100%;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:11px 40px 11px 14px;font-size:14px;outline:none;font-family:inherit;transition:border-color .2s" onfocus="this.style.borderColor='#1a56db'" onblur="this.style.borderColor='#e5e7eb'">
+            <button onclick="togglePwVis('login-password')" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#9ca3af;font-size:16px" title="Afficher">👁</button>
+          </div>
+        </div>
+        <div id="login-error" style="display:none;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;font-size:12px;color:#dc2626;font-weight:500"></div>
+        <button onclick="doLogin()" id="login-btn" style="background:#1a56db;color:#fff;border:none;border-radius:8px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;transition:background .2s;margin-top:4px">Se connecter</button>
+      </div>
+    </div>
+
+    <!-- Request Form -->
+    <div id="tab-request" style="display:none">
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <div>
+          <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#6b7280;display:block;margin-bottom:5px">Nom complet</label>
+          <input type="text" id="req-nom" placeholder="Prénom Nom" style="width:100%;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:11px 14px;font-size:14px;outline:none;font-family:inherit">
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#6b7280;display:block;margin-bottom:5px">Email professionnel</label>
+          <input type="email" id="req-email" placeholder="votre@andapei47.fr" style="width:100%;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:11px 14px;font-size:14px;outline:none;font-family:inherit">
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#6b7280;display:block;margin-bottom:5px">Message (optionnel)</label>
+          <textarea id="req-message" placeholder="Précisez votre rôle et pourquoi vous avez besoin d'accès…" style="width:100%;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:11px 14px;font-size:13px;outline:none;font-family:inherit;resize:vertical;min-height:80px"></textarea>
+        </div>
+        <div id="req-status" style="display:none"></div>
+        <button onclick="doRequest()" style="background:#059669;color:#fff;border:none;border-radius:8px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">Envoyer la demande</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CHANGE PASSWORD SCREEN -->
+<div id="change-pw-screen" style="display:none;position:fixed;inset:0;background:linear-gradient(135deg,#1e3a8a,#1a56db);z-index:9997;align-items:center;justify-content:center;padding:16px">
+  <div style="background:#fff;border-radius:20px;padding:40px;width:100%;max-width:400px;box-shadow:0 25px 60px rgba(0,0,0,.3)">
+    <div style="text-align:center;margin-bottom:28px">
+      <div style="font-size:40px;margin-bottom:12px">🔑</div>
+      <h2 style="font-size:18px;font-weight:800;margin-bottom:6px">Créer votre mot de passe</h2>
+      <p style="font-size:13px;color:#6b7280">Vous devez définir un nouveau mot de passe pour continuer.</p>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div>
+        <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#6b7280;display:block;margin-bottom:5px">Nouveau mot de passe</label>
+        <input type="password" id="new-pw1" placeholder="••••••••" style="width:100%;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:11px 14px;font-size:14px;outline:none;font-family:inherit">
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#6b7280;display:block;margin-bottom:5px">Confirmer</label>
+        <input type="password" id="new-pw2" placeholder="••••••••" onkeypress="if(event.key==='Enter')doChangePw()" style="width:100%;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:11px 14px;font-size:14px;outline:none;font-family:inherit">
+      </div>
+      <div id="changepw-error" style="display:none;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;font-size:12px;color:#dc2626"></div>
+      <button onclick="doChangePw()" style="background:#1a56db;color:#fff;border:none;border-radius:8px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<div id="loading-screen">
+  <div class="spin"></div>
+  <p id="loading-msg">Connexion à la base de données…</p>
+</div>
+
+<!-- Sync Indicator -->
+<div class="sync-indicator" id="syncIndicator">
+  <div class="sync-dot" id="syncDot"></div>
+  <span id="syncText">En ligne</span>
+</div>
+
+<!-- Mobile Menu -->
+<div class="mobile-menu-btn" id="mobileMenuBtn" onclick="toggleMobile()"><div class="hamburger"></div></div>
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeMobile()"></div>
+
+<!-- Toasts -->
+<div class="toast-box" id="toastBox"></div>
+
+<!-- Sidebar -->
+<aside class="sidebar" id="sidebar">
+  <div class="logo-area" style="position:relative">
+    <img src="logo-andapei.png" alt="ANDAPEI Lot-et-Garonne">
+    <div class="app-title">Maison Saint Paul</div>
+    <div class="app-sub">Gestion des repas</div>
+  </div>
+  <div class="week-selector">
+    <label>Période active</label>
+    <div class="week-row">
+      <select id="yearSel" onchange="changeYear(+this.value)"></select>
+      <select id="weekSel" onchange="changeWeek(+this.value)"></select>
+    </div>
+  </div>
+  <nav class="nav">
+    <div class="nav-label">Gestion</div>
+    <button class="nav-btn active" onclick="go('dashboard',this)"><span class="nav-icon">📊</span> Accueil</button>
+    <button class="nav-btn" onclick="go('commande',this)"><span class="nav-icon">📋</span> Commande / Absences</button>
+    <button class="nav-btn" onclick="go('totaux',this)"><span class="nav-icon">📈</span> Cuisine centrale</button>
+    <button class="nav-btn" onclick="go('mep',this)"><span class="nav-icon">🍽</span> Mise en plats</button>
+    <button class="nav-btn" onclick="go('groupes',this)"><span class="nav-icon">👨‍🍳</span> Personnel & Groupes</button>
+    <button class="nav-btn" onclick="go('historique',this)"><span class="nav-icon">📝</span> Historique Modifs</button>
+    <button class="nav-btn" onclick="go('reporting',this)"><span class="nav-icon">🧾</span> Reporting mensuel</button>
+    <button class="nav-btn" id="nav-admin-panel" style="display:none" onclick="go('adminpanel',this)"><span class="nav-icon">⚙️</span> Administration</button>
+    <div class="nav-label" style="margin-top:10px">Configuration</div>
+    <button class="nav-btn" onclick="go('residents',this)"><span class="nav-icon">👥</span> Résidents</button>
+    <button class="nav-btn" onclick="go('temporaires',this)"><span class="nav-icon">🏠</span> Accueil temporaire</button>
+    <button class="nav-btn" onclick="go('absences',this)"><span class="nav-icon">📅</span> Absences planifiées</button>
+    <button class="nav-btn" onclick="go('regimes',this)"><span class="nav-icon">🥗</span> Régimes & Textures</button>
+    <button class="nav-btn" onclick="go('lieux',this)"><span class="nav-icon">📍</span> Lieux de repas</button>
+    <button class="nav-btn" onclick="go('fiche',this)"><span class="nav-icon">📄</span> Planning résident</button>
+  </nav>
+  <div class="sidebar-footer" id="footerWeek">—</div>
+  <div class="sidebar-footer" id="user-info" style="border-top:1px solid var(--border);display:flex;align-items:center;gap:8px;padding:12px 16px">
+    <div style="width:32px;height:32px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0" id="user-avatar">?</div>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:12px;font-weight:700;color:var(--txt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" id="user-name">—</div>
+      <div style="font-size:10px;color:var(--txt3)" id="user-role-label">—</div>
+    </div>
+    <button onclick="doLogout()" title="Déconnexion" style="background:none;border:none;cursor:pointer;color:var(--txt3);font-size:16px;padding:4px" title="Se déconnecter">🚪</button>
+  </div>
+</aside>
+
+<main>
+<!-- ===== DASHBOARD ===== -->
+<div class="view active" id="v-dashboard">
+  <div class="page-header"><div><h1>Accueil</h1><p class="subtitle" id="dash-sub"></p></div></div>
+  <div class="cards-grid" id="dash-cards"></div>
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:40px;text-align:center;box-shadow:var(--shadow-sm)">
+    <div style="margin-bottom:16px"><img src="logo-andapei.png" alt="" style="max-width:200px;height:auto"></div>
+    <p style="font-weight:700;font-size:18px;margin-bottom:4px">Commande Repas — Maison St Paul</p>
+    <p style="font-size:13px;color:var(--txt2)">Application de gestion des repas · Données synchronisées en temps réel</p>
+    <button id="installBtn" class="btn btn-primary" style="display:none;margin:16px auto 0">📱 Installer l'application</button>
+  </div>
+</div>
+
+<!-- ===== COMMANDE / ABSENCES ===== -->
+<div class="view" id="v-commande">
+  <div class="page-header">
+    <div><h1>Commande — Absences</h1><p class="subtitle" id="cmd-sub"></p></div>
+    <div class="btn-group" style="align-items:center">
+      <button class="btn btn-outline btn-sm" onclick="resetWeek()">🔄 Réinitialiser</button>
+    </div>
+  </div>
+  <div class="info-box">💡 Cliquez sur un bouton pour basculer : OK → ABS → PN. <span class="tempo-badge">AT</span> = accueil temporaire.</div>
+  <div class="filter-bar" id="cmd-filters"></div>
+  <div class="table-box">
+    <div class="table-top">
+      <h2>Présences — <span id="cmd-count">0</span></h2>
+      <input class="search-input" type="text" placeholder="Rechercher…" oninput="renderCommande()" id="cmd-search">
+    </div>
+    <div id="cmd-table" style="overflow-x:auto"></div>
+  </div>
+</div>
+
+<!-- ===== TOTAUX (Cuisine Centrale) ===== -->
+<div class="view" id="v-totaux">
+  <div class="page-header">
+    <div><h1>Commande cuisine centrale</h1><p class="subtitle" id="tot-sub"></p></div>
+    <div class="btn-group">
+      <button class="btn btn-outline btn-sm" id="btn-bon" onclick="genererBon()" style="display:none">📝 Bon de Modification</button>
+      <div class="perm-admin" style="display:none;gap:8px">
+        <button class="btn btn-purple btn-sm" onclick="exportExcel()">📤 Excel</button>
+        <button class="btn btn-purple btn-sm" onclick="$('import-excel-in').click()">📥 Import Excel</button>
+        <input type="file" id="import-excel-in" accept=".xlsx,.xls" style="display:none" onchange="importExcel(event)">
+        <button class="btn btn-success btn-sm" onclick="exportBackup()">💾 Backup</button>
+        <button class="btn btn-outline btn-sm" style="border-color:var(--teal);color:var(--teal)" onclick="$('import-backup-in').click()">📥 Restaurer</button>
+        <input type="file" id="import-backup-in" accept=".json" style="display:none" onchange="importBackup(event)">
+      </div>
+      <button class="btn btn-success btn-sm perm-commande" onclick="sendEmailCommande()">📧 Envoyer par email</button>
+      <button class="btn btn-primary btn-sm perm-commande" onclick="printTotaux()">🖨 Imprimer</button>
+    </div>
+  </div>
+  <div id="tot-content"></div>
+</div>
+
+<!-- ===== MEP ===== -->
+<div class="view" id="v-mep">
+  <div class="page-header">
+    <div><h1>Mise en plats</h1><p class="subtitle" id="mep-sub"></p></div>
+    <button class="btn btn-primary btn-sm" onclick="printMEP()">🖨 Imprimer</button>
+  </div>
+  <div id="mep-content"></div>
+</div>
+
+<!-- ===== GROUPES ===== -->
+<div class="view" id="v-groupes">
+  <div class="page-header">
+    <div><h1>Personnel & Groupes</h1><p class="subtitle">Commandes hors résidents</p></div>
+    <button class="btn btn-primary btn-sm perm-edit" onclick="addGroupe()">+ Nouveau groupe</button>
+  </div>
+  <div id="grp-content"></div>
+</div>
+
+<!-- ===== HISTORIQUE BONS ===== -->
+<div class="view" id="v-historique">
+  <div class="page-header">
+    <div><h1>Historique Modifications</h1><p class="subtitle">Bons de modification après impression</p></div>
+  </div>
+  <div class="info-box">💡 Les bons sont générés lorsque vous modifiez une commande déjà imprimée.</div>
+  <div id="hist-content"></div>
+</div>
+
+<!-- ===== RÉSIDENTS ===== -->
+<div class="view" id="v-residents">
+  <div class="page-header">
+    <div><h1>Résidents</h1><p class="subtitle">Gestion des résidents sédentaires</p></div>
+    <div class="btn-group">
+      <button class="btn btn-primary btn-sm perm-edit" onclick="openResidentModal()">+ Nouveau</button>
+      <button class="btn btn-outline btn-sm" onclick="exportJSON()">💾 Export JSON</button>
+      <label class="btn btn-outline btn-sm" style="cursor:pointer">📂 Import JSON<input type="file" accept=".json" style="display:none" onchange="importJSON(this)"></label>
+    </div>
+  </div>
+  <div class="filter-bar" id="res-filters"></div>
+  <div class="table-box">
+    <div class="table-top">
+      <h2>Liste — <span id="res-count">0</span></h2>
+      <input class="search-input" type="text" placeholder="Rechercher…" oninput="renderResidents()" id="res-search">
+    </div>
+    <div id="res-table"></div>
+  </div>
+</div>
+
+<!-- ===== TEMPORAIRES ===== -->
+<div class="view" id="v-temporaires">
+  <div class="page-header">
+    <div><h1>Accueil Temporaire</h1><p class="subtitle">Séjours temporaires</p></div>
+    <button class="btn btn-primary btn-sm perm-absences" onclick="openTempoModal()">+ Nouveau séjour</button>
+  </div>
+  <div class="info-box">💡 Les AT apparaissent automatiquement dans les commandes pendant leur séjour.</div>
+  <div class="filter-bar" id="tempo-filters"></div>
+  <div class="table-box">
+    <div class="table-top">
+      <h2>Séjours — <span id="tempo-count">0</span></h2>
+      <input class="search-input" type="text" placeholder="Rechercher…" oninput="renderTemporaires()" id="tempo-search">
+    </div>
+    <div id="tempo-table"></div>
+  </div>
+</div>
+
+<!-- ===== ABSENCES PLANIFIÉES ===== -->
+<div class="view" id="v-absences">
+  <div class="page-header">
+    <div><h1>Absences planifiées</h1><p class="subtitle">Congés, hospitalisations</p></div>
+    <button class="btn btn-primary btn-sm perm-absences" onclick="openAbsenceModal()">+ Nouvelle</button>
+  </div>
+  <div class="info-box">💡 Prises en compte automatiquement dans la commande.</div>
+  <div class="table-box">
+    <div class="table-top"><h2>Absences — <span id="abs-count">0</span></h2>
+      <input class="search-input" type="text" placeholder="Rechercher…" oninput="renderAbsences()" id="abs-search">
+    </div>
+    <div id="abs-table"></div>
+  </div>
+</div>
+
+<!-- ===== RÉGIMES ===== -->
+<div class="view" id="v-regimes">
+  <div class="page-header">
+    <div><h1>Régimes & Textures</h1><p class="subtitle">Référentiel alimentaire</p></div>
+    <button class="btn btn-primary btn-sm perm-edit" onclick="openRegimeModal()">+ Nouveau</button>
+  </div>
+  <div style="display:flex;gap:2px;margin-bottom:20px;border-bottom:1px solid var(--border)">
+    <button class="filter-btn active" id="tab-tex" onclick="switchRegTab('textures')" style="border:none;border-radius:8px 8px 0 0">Textures</button>
+    <button class="filter-btn" id="tab-reg" onclick="switchRegTab('regimes')" style="border:none;border-radius:8px 8px 0 0">Régimes spéciaux</button>
+  </div>
+  <div id="reg-content"></div>
+</div>
+
+<!-- ===== LIEUX ===== -->
+<div class="view" id="v-lieux">
+  <div class="page-header">
+    <div><h1>Lieux de repas</h1><p class="subtitle">Salles et affectation</p></div>
+    <button class="btn btn-primary btn-sm perm-edit" onclick="openLieuModal()">+ Nouveau lieu</button>
+  </div>
+  <div id="lieux-content"></div>
+</div>
+
+<!-- ===== FICHE RÉSIDENT ===== -->
+<div class="view" id="v-fiche">
+  <div class="page-header"><div><h1>Planning résident</h1><p class="subtitle">Planning annuel</p></div></div>
+  <div style="display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap">
+    <select id="fiche-sel" onchange="renderFiche()" style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--txt);font-size:13px;font-weight:600;outline:none;min-width:240px;font-family:inherit"><option value="">— Choisir —</option></select>
+    <select id="fiche-year" onchange="renderFiche()" style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--txt);font-size:13px;font-weight:600;outline:none;font-family:inherit"></select>
+  </div>
+  <div id="fiche-content"><div class="empty-state">Sélectionnez un résident</div></div>
+</div>
+
+<!-- ===== REPORTING MENSUEL ===== -->
+<div class="view" id="v-reporting">
+  <div class="page-header">
+    <div><h1>Reporting mensuel</h1><p class="subtitle">Synthèse pour la comptabilité</p></div>
+    <div class="btn-group">
+      <button class="btn btn-success btn-sm" onclick="exportReportingExcel()">📊 Export Excel</button>
+      <button class="btn btn-primary btn-sm" onclick="printReporting()">🖨 Imprimer</button>
+    </div>
+  </div>
+  <div style="display:flex;gap:12px;margin-bottom:24px;flex-wrap:wrap;align-items:center">
+    <div style="display:flex;flex-direction:column;gap:5px">
+      <label style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--txt2);font-weight:700">Mois</label>
+      <select id="rep-month" onchange="renderReporting()" style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--txt);font-size:13px;font-weight:600;outline:none;font-family:inherit;min-width:160px"></select>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:5px">
+      <label style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--txt2);font-weight:700">Année</label>
+      <select id="rep-year" onchange="renderReporting()" style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--txt);font-size:13px;font-weight:600;outline:none;font-family:inherit"></select>
+    </div>
+  </div>
+  <div id="rep-content"><div class="empty-state">Sélectionnez un mois</div></div>
+</div>
+
+
+<!-- ===== ADMINISTRATION ===== -->
+<div class="view" id="v-adminpanel">
+  <div class="page-header">
+    <div><h1>Administration</h1><p class="subtitle">Gestion des accès et journal d'activité</p></div>
+  </div>
+
+  <!-- Tabs -->
+  <div style="display:flex;gap:2px;margin-bottom:24px;border-bottom:1px solid var(--border)">
+    <button class="filter-btn active" id="adm-tab-requests" onclick="switchAdmTab('requests')" style="border:none;border-radius:8px 8px 0 0">📬 Demandes d'accès</button>
+    <button class="filter-btn" id="adm-tab-users" onclick="switchAdmTab('users')" style="border:none;border-radius:8px 8px 0 0">👥 Utilisateurs</button>
+    <button class="filter-btn" id="adm-tab-audit" onclick="switchAdmTab('audit')" style="border:none;border-radius:8px 8px 0 0">📋 Journal d'activité</button>
+  </div>
+
+  <div id="adm-tab-content"></div>
+</div>
+
+<!-- Modal attribution rôle -->
+<div class="modal-overlay" id="modal-role">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-head"><h2 id="modal-role-title">Gérer l'accès</h2><button class="modal-close" onclick="closeModal('modal-role')">✕</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="role-user-id">
+      <div class="form-grid">
+        <div class="form-group full">
+          <label>Utilisateur</label>
+          <input type="text" id="role-user-info" disabled style="background:var(--bg);color:var(--txt2)">
+        </div>
+        <div class="form-group full">
+          <label>Rôle attribué *</label>
+          <select id="role-select">
+            <option value="educateur">👨‍🏫 Éducateur — Saisie absences + lecture</option>
+            <option value="comptable">📊 Comptable — Reporting + lecture</option>
+            <option value="responsable">👔 Responsable — Accès complet</option>
+            <option value="superadmin">👑 Super Admin — Accès total</option>
+          </select>
+        </div>
+        <div class="form-group full">
+          <label>Mot de passe temporaire</label>
+          <div style="display:flex;gap:8px">
+            <input type="text" id="role-temp-pw" placeholder="Généré automatiquement" style="flex:1">
+            <button class="btn btn-outline btn-sm" onclick="generateTempPw()">🎲 Générer</button>
+          </div>
+          <div style="font-size:11px;color:var(--txt3);margin-top:4px">La personne devra changer ce mot de passe à la première connexion.</div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" onclick="closeModal('modal-role')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveUserRole()">✅ Valider l'accès</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal reset password -->
+<div class="modal-overlay" id="modal-reset-pw">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-head" style="background:var(--amber);color:#fff"><h2>🔑 Réinitialiser le mot de passe</h2><button class="modal-close" onclick="closeModal('modal-reset-pw')" style="color:#fff;background:rgba(255,255,255,.15)">✕</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="reset-user-id">
+      <div style="margin-bottom:16px;font-size:13px;color:var(--txt2)">Utilisateur : <strong id="reset-user-name"></strong></div>
+      <div class="form-group">
+        <label>Nouveau mot de passe temporaire</label>
+        <div style="display:flex;gap:8px">
+          <input type="text" id="reset-temp-pw" placeholder="Mot de passe temporaire" style="flex:1">
+          <button class="btn btn-outline btn-sm" onclick="generateResetPw()">🎲 Générer</button>
+        </div>
+        <div style="font-size:11px;color:var(--txt3);margin-top:4px">La personne devra changer ce mot de passe à la prochaine connexion.</div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" onclick="closeModal('modal-reset-pw')">Annuler</button>
+      <button class="btn btn-amber" onclick="doResetPw()">🔑 Réinitialiser</button>
+    </div>
+  </div>
+</div>
+
+</main>
+
+<!-- Save Bar -->
+<div class="save-bar">
+  <div class="save-dot" id="saveDot"></div>
+  <span id="saveText" style="color:var(--txt3)">Prêt</span>
+  <span id="lastSave" style="margin-left:auto;font-size:11px;color:var(--txt3)"></span>
+</div>
+
+<!-- ===== MODALS ===== -->
+
+<!-- Modal Résident -->
+<div class="modal-overlay" id="modal-resident">
+  <div class="modal">
+    <div class="modal-head"><h2 id="mrt">Nouveau résident</h2><button class="modal-close" onclick="closeModal('modal-resident')">✕</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="r-id">
+      <div class="form-grid">
+        <div class="form-group full"><label>Nom *</label><input type="text" id="r-nom"></div>
+        <div class="form-group"><label>🍽 Lieu midi</label><select id="r-lm"></select></div>
+        <div class="form-group"><label>🌙 Lieu soir</label><select id="r-ls"></select></div>
+        <div class="form-group"><label>Service midi</label><select id="r-sm"><option value="1">1er service</option><option value="2">2ème service</option></select></div>
+        <div class="form-group"><label>Service soir</label><select id="r-ss"><option value="1">1er service</option><option value="2">2ème service</option></select></div>
+        <div class="form-group"><label>Texture *</label><select id="r-reg"></select></div>
+        <div class="form-group"><label>Régime spécial</label><select id="r-spe"></select></div>
+        <div class="form-group"><label>Portions</label><input type="number" id="r-por" min="0" max="10" step="0.5" value="1"></div>
+        <div class="form-group"><label>⚠ Adaptation</label><input type="text" id="r-ada"></div>
+      </div>
+    </div>
+    <div class="modal-foot"><button class="btn btn-outline" onclick="closeModal('modal-resident')">Annuler</button><button class="btn btn-primary" onclick="saveResident()">Enregistrer</button></div>
+  </div>
+</div>
+
+<!-- Modal Temporaire -->
+<div class="modal-overlay" id="modal-tempo">
+  <div class="modal">
+    <div class="modal-head"><h2 id="mtt">Nouveau séjour</h2><button class="modal-close" onclick="closeModal('modal-tempo')">✕</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="t-id">
+      <div class="form-grid">
+        <div class="form-group full"><label>Nom *</label><input type="text" id="t-nom"></div>
+        <div class="form-group"><label>📅 Arrivée *</label><input type="date" id="t-arr"></div>
+        <div class="form-group"><label>📅 Départ *</label><input type="date" id="t-dep"></div>
+        <div class="form-group"><label>🍽 Lieu midi</label><select id="t-lm"></select></div>
+        <div class="form-group"><label>🌙 Lieu soir</label><select id="t-ls"></select></div>
+        <div class="form-group"><label>Service midi</label><select id="t-sm"><option value="1">1er service</option><option value="2">2ème service</option></select></div>
+        <div class="form-group"><label>Service soir</label><select id="t-ss"><option value="1">1er service</option><option value="2">2ème service</option></select></div>
+        <div class="form-group"><label>Texture *</label><select id="t-reg"></select></div>
+        <div class="form-group"><label>Régime spécial</label><select id="t-spe"></select></div>
+        <div class="form-group"><label>Portions</label><input type="number" id="t-por" min="0" max="10" step="0.5" value="1"></div>
+        <div class="form-group"><label>⚠ Adaptation</label><input type="text" id="t-ada"></div>
+        <div class="form-group full" style="border-top:1px solid var(--border);padding-top:16px;margin-top:8px">
+          <label>📅 Habitudes alimentaires <span style="font-weight:400;font-size:10px;color:var(--txt3);text-transform:none;letter-spacing:0">(Cocher les repas pris)</span></label>
+          <div id="t-hab" style="display:grid;grid-template-columns:100px auto auto;gap:8px 16px;align-items:center;max-width:500px;margin-top:8px"></div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot"><button class="btn btn-outline" onclick="closeModal('modal-tempo')">Annuler</button><button class="btn btn-primary" onclick="saveTemporaire()">Enregistrer</button></div>
+  </div>
+</div>
+
+<!-- Modal Absence -->
+<div class="modal-overlay" id="modal-absence">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-head"><h2 id="mat">Absence planifiée</h2><button class="modal-close" onclick="closeModal('modal-absence')">✕</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="a-id">
+      <div class="form-grid">
+        <div class="form-group full"><label>Résident *</label><select id="a-res"></select></div>
+        <div class="form-group"><label>Motif</label><select id="a-mot"><option>Congés</option><option>Hospitalisation</option><option>Sortie</option><option>Autre</option></select></div>
+        <div class="form-group"><label>Note</label><input type="text" id="a-note"></div>
+        <div class="form-group"><label>Début *</label><input type="date" id="a-deb"></div>
+        <div class="form-group"><label>Fin *</label><input type="date" id="a-fin"></div>
+        <div class="form-group full"><label>Services</label><div style="display:flex;gap:16px;margin-top:4px"><label class="checkbox-label"><input type="checkbox" id="a-midi" checked> Midi</label><label class="checkbox-label"><input type="checkbox" id="a-soir" checked> Soir</label></div></div>
+      </div>
+    </div>
+    <div class="modal-foot"><button class="btn btn-outline" onclick="closeModal('modal-absence')">Annuler</button><button class="btn btn-primary" onclick="saveAbsence()">Enregistrer</button></div>
+  </div>
+</div>
+
+<!-- Modal Régime -->
+<div class="modal-overlay" id="modal-regime">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-head"><h2 id="mrgt">Nouveau</h2><button class="modal-close" onclick="closeModal('modal-regime')">✕</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="rg-id"><input type="hidden" id="rg-type">
+      <div class="form-grid">
+        <div class="form-group full"><label>Nom</label><input type="text" id="rg-nom"></div>
+        <div class="form-group"><label>Abrév.</label><input type="text" id="rg-abr"></div>
+        <div class="form-group"><label>Couleur</label><input type="color" id="rg-col" value="#1a56db"></div>
+        <div class="form-group full"><label>Description</label><textarea id="rg-desc"></textarea></div>
+      </div>
+    </div>
+    <div class="modal-foot"><button class="btn btn-outline" onclick="closeModal('modal-regime')">Annuler</button><button class="btn btn-primary" onclick="saveRegime()">Enregistrer</button></div>
+  </div>
+</div>
+
+<!-- Modal Lieu -->
+<div class="modal-overlay" id="modal-lieu">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-head"><h2 id="mlt">Nouveau lieu</h2><button class="modal-close" onclick="closeModal('modal-lieu')">✕</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="l-id">
+      <div class="form-grid">
+        <div class="form-group full"><label>Nom *</label><input type="text" id="l-nom"></div>
+        <div class="form-group"><label>Site *</label><input type="text" id="l-sec" list="dl-sites"><datalist id="dl-sites"></datalist></div>
+        <div class="form-group"><label>Couleur</label><input type="color" id="l-col" value="#1a56db"></div>
+        <div class="form-group full"><label>Services</label><div style="display:flex;gap:16px;margin-top:4px"><label class="checkbox-label"><input type="checkbox" id="l-midi" checked> Midi</label><label class="checkbox-label"><input type="checkbox" id="l-soir" checked> Soir</label></div></div>
+        <div class="form-group full"><label class="checkbox-label"><input type="checkbox" id="l-staff"> Réservé personnel</label></div>
+      </div>
+    </div>
+    <div class="modal-foot"><button class="btn btn-outline" onclick="closeModal('modal-lieu')">Annuler</button><button class="btn btn-primary" onclick="saveLieu()">Enregistrer</button></div>
+  </div>
+</div>
+
+<!-- Modal Confirm -->
+<div class="modal-overlay" id="modal-confirm">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-body" style="text-align:center;padding:32px">
+      <div style="font-size:40px;margin-bottom:12px">⚠️</div>
+      <h3 id="cf-title" style="font-size:17px;font-weight:700;margin-bottom:6px"></h3>
+      <p id="cf-msg" style="color:var(--txt2);font-size:13px;margin-bottom:24px"></p>
+      <div style="display:flex;gap:10px;justify-content:center">
+        <button class="btn btn-outline" onclick="closeModal('modal-confirm')">Annuler</button>
+        <button class="btn btn-danger" id="cf-ok">Confirmer</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+
+<!-- Modal Print Confirm -->
+<div class="modal-overlay" id="modal-print">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-head" style="background:var(--red);color:#fff"><h2>📤 Envoi Commande</h2><button class="modal-close" onclick="closeModal('modal-print')" style="color:#fff;background:rgba(255,255,255,.15)">✕</button></div>
+    <div class="modal-body" style="text-align:center">
+      <div style="font-size:48px;margin-bottom:12px">📋</div>
+      <p style="font-size:15px;font-weight:600;margin-bottom:6px" id="print-msg"></p>
+      <p style="font-size:13px;color:var(--txt2);margin-bottom:20px" id="print-dates"></p>
+      <div style="background:var(--amber-bg);border-left:3px solid var(--amber);padding:10px 14px;font-size:12px;color:var(--amber);text-align:left;border-radius:0 8px 8px 0">⚠️ Cette action imprimera la commande et marquera la semaine comme envoyée.</div>
+    </div>
+    <div class="modal-foot"><button class="btn btn-outline" onclick="closeModal('modal-print')">Annuler</button><button class="btn btn-danger" onclick="confirmPrint()">✅ Confirmer l'envoi</button></div>
+  </div>
+</div>
+
+<!-- Modal Email -->
+<div class="modal-overlay" id="modal-email">
+  <div class="modal" style="max-width:500px">
+    <div class="modal-head" style="background:var(--green);color:#fff"><h2>📧 Envoi par email</h2><button class="modal-close" onclick="closeModal('modal-email')" style="color:#fff;background:rgba(255,255,255,.15)">✕</button></div>
+    <div class="modal-body">
+      <div style="font-size:13px;color:var(--txt2);margin-bottom:20px">
+        La commande de la semaine <strong id="email-semaine"></strong> sera envoyée à :
+        <ul style="margin-top:10px;padding-left:20px;line-height:2">
+          <li>📬 <strong>m.cuisine@andapei47.fr</strong> (destinataire principal)</li>
+          <li>📬 <strong>n.bielle@andapei47.fr</strong> (copie)</li>
+        </ul>
+      </div>
+      <div class="form-group">
+        <label>Message optionnel</label>
+        <textarea id="email-note" placeholder="Remarques particulières pour cette semaine…" style="min-height:80px"></textarea>
+      </div>
+      <div id="email-status" style="display:none;margin-top:14px;padding:10px 14px;border-radius:8px;font-size:13px;font-weight:500"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" onclick="closeModal('modal-email')">Annuler</button>
+      <button class="btn btn-success" id="btn-send-email" onclick="doSendEmail()">📧 Envoyer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Delete Bon -->
+<div class="modal-overlay" id="modal-del-bon">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-head" style="background:var(--red);color:#fff"><h2>🗑️ Suppression</h2><button class="modal-close" onclick="closeModal('modal-del-bon')" style="color:#fff;background:rgba(255,255,255,.15)">✕</button></div>
+    <div class="modal-body">
+      <div style="background:var(--amber-bg);border-left:3px solid var(--amber);padding:10px 14px;margin-bottom:14px;font-size:12px;color:var(--amber);border-radius:0 8px 8px 0">⚠️ Action irréversible. Mot de passe admin requis.</div>
+      <div class="form-group"><label>Mot de passe admin</label><input type="password" id="pw-del-bon" onkeypress="if(event.key==='Enter')confirmDelBon()"></div>
+      <div id="pw-del-err" style="color:var(--red);font-size:12px;margin-top:6px;display:none">❌ Mot de passe incorrect</div>
+    </div>
+    <div class="modal-foot"><button class="btn btn-outline" onclick="closeModal('modal-del-bon')">Annuler</button><button class="btn btn-danger" onclick="confirmDelBon()">🗑️ Supprimer</button></div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// CONFIGURATION SUPABASE
+// ============================================================
+const SUPABASE_URL = 'https://biqampjxzxssuqebkism.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJpcWFtcGp4enhzc3VxZWJraXNtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4NTQxODQsImV4cCI6MjA5NzQzMDE4NH0.ZQIl72BiNoc89jl5UGdGc1tvPyfpbJuKIVoG0zwdrAg';
+
+// ============================================================
+// CONFIGURATION EMAIL (EmailJS)
+// À compléter après création du compte EmailJS
+// ============================================================
+const EMAILJS_SERVICE_ID = 'service_u8k35qc';   // À remplacer
+const EMAILJS_TEMPLATE_ID = 'template_2o4f0xk'; // À remplacer
+const EMAILJS_PUBLIC_KEY = 'OyD7KWzCj3adFtRkn';               // À remplacer après inscription sur emailjs.com
+
+const EMAIL_CUISINE = 'n.bielle@andapei47.fr';
+const EMAIL_CC = '';
+
+// ============================================================
+// CONSTANTS
+// ============================================================
+const DAYS=['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
+const DAYS_S=['Lu','Ma','Me','Je','Ve','Sa','Di'];
+const DAY_C=['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#06b6d4'];
+const MONTHS=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+
+// ============================================================
+// HELPERS
+// ============================================================
+const $=id=>document.getElementById(id);
+const uid=()=>'id_'+Date.now()+'_'+Math.random().toString(36).substr(2,6);
+function getCurWeek(){const n=new Date(),s=new Date(n.getFullYear(),0,1),d=n-s+(s.getTimezoneOffset()-n.getTimezoneOffset())*6e4;return Math.ceil(d/6048e5)}
+function getCurYear(){return new Date().getFullYear()}
+function wk(){return`${S.currentYear}_${S.currentWeek}`}
+function getLieu(id){return S.lieux.find(l=>l.id===id)}
+function getTex(n){return S.textures.find(t=>t.nom===n)}
+function getReg(n){return S.regimesSpeciaux.find(r=>r.nom===n)}
+function fmtDate(d){if(!d)return'—';try{return new Date(d).toLocaleDateString('fr-FR')}catch{return'—'}}
+function getDateForDay(week,dayIdx){const y=S.currentYear,j=new Date(y,0,1),off=(j.getDay()===0?-6:1)-j.getDay(),m=new Date(j);m.setDate(j.getDate()+off+(week-1)*7+dayIdx);return m}
+function isDatePast(dayIdx){const d=getDateForDay(S.currentWeek,dayIdx),t=new Date();d.setHours(0,0,0,0);t.setHours(0,0,0,0);return d<t}
+function isTempoActive(t,w,y){if(t.archived)return false;const j=new Date(y,0,1),off=(j.getDay()===0?-6:1)-j.getDay(),mon=new Date(j);mon.setDate(j.getDate()+off+(w-1)*7);mon.setHours(0,0,0,0);const sun=new Date(mon);sun.setDate(mon.getDate()+6);sun.setHours(23,59,59,999);const db=new Date(t.dateArrivee);db.setHours(0,0,0,0);const fn=new Date(t.dateDepart);fn.setHours(23,59,59,999);return db<=sun&&fn>=mon}
+function isPlannedAbs(rid,dayIdx,svc){const d=getDateForDay(S.currentWeek,dayIdx);const dd=new Date(d.getFullYear(),d.getMonth(),d.getDate());return(S.plannedAbsences||[]).some(a=>{if(a.residentId!==rid)return false;const s=new Date(a.debut),e=new Date(a.fin);const sd=new Date(s.getFullYear(),s.getMonth(),s.getDate()),ed=new Date(e.getFullYear(),e.getMonth(),e.getDate());if(dd<sd||dd>ed)return false;if(svc==='midi'&&!a.midi)return false;if(svc==='soir'&&!a.soir)return false;return true})}
+
+// ============================================================
+// STATE
+// ============================================================
+const defaultState={
+  currentWeek:1,currentYear:2026,
+  residents:[],temporaires:[],
+  lieux:[
+    {id:'M1',nom:'Réfectoire',color:'#3b82f6',midi:true,soir:true,section:'Maison Saint Paul',isStaffOnly:false},
+    {id:'M2',nom:'Groupe 4',color:'#10b981',midi:true,soir:true,section:'Maison Saint Paul',isStaffOnly:false},
+    {id:'M3',nom:'Salle à manger',color:'#f59e0b',midi:true,soir:true,section:'Maison Saint Paul',isStaffOnly:false},
+    {id:'M4',nom:'Salle de repos',color:'#ef4444',midi:true,soir:true,section:'Maison Saint Paul',isStaffOnly:true},
+    {id:'M5',nom:'Cuisine',color:'#8b5cf6',midi:true,soir:true,section:'Maison Saint Paul',isStaffOnly:true},
+    {id:'F1',nom:'Foyer',color:'#ec4899',midi:true,soir:true,section:'Foyer Tournon',isStaffOnly:false}
+  ],
+  textures:[
+    {id:'tx1',nom:'Normal',abrev:'N',color:'#3b82f6',desc:'Standard'},
+    {id:'tx2',nom:'Mixé',abrev:'M',color:'#10b981',desc:'Mixée'},
+    {id:'tx3',nom:'Lisse',abrev:'L',color:'#8b5cf6',desc:'Lisse'},
+    {id:'tx4',nom:'Plateau',abrev:'P',color:'#06b6d4',desc:'Plateau'}
+  ],
+  regimesSpeciaux:[
+    {id:'rg1',nom:'DIABETE',abrev:'DIA',color:'#f59e0b',desc:'Contrôle glycémique'},
+    {id:'rg2',nom:'SANS PORC',abrev:'SP',color:'#ef4444',desc:'Sans porc'},
+    {id:'rg3',nom:'HYPOCALORIQUE',abrev:'HYP',color:'#8b5cf6',desc:'Restriction calorique'}
+  ],
+  groupes:[
+    {id:'g1',nom:'Administratif',lieuId:'M1',vals:[2,0,0,0,2,0,0],valsSoir:[0,0,0,0,0,0,0],valsPn:[0,0,0,0,0,0,0],valsSoirPn:[0,0,0,0,0,0,0]},
+    {id:'g3',nom:'Cuisine',lieuId:'M1',vals:[2,1,1,1,2,1,1],valsSoir:[2,1,1,1,2,1,1],valsPn:[0,0,0,0,0,0,0],valsSoirPn:[0,0,0,0,0,0,0]}
+  ],
+  plannedAbsences:[],affectations:{},absences:{},piquenique:{},printHistory:{},bonsModification:[]
+};
+
+let S=null, cmdFilter='all', resFilter='all', tempoFilt='all', regTab='textures', _cfCb=null, bonDelId=null;
+let db=null; // Supabase client
+let isSyncing=false;
+
+// ============================================================
+// SUPABASE INIT
+// ============================================================
+async function initSupabase(){
+  try{
+    db=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+    setLoading('Chargement des données…');
+    await loadFromSupabase();
+    setSyncStatus('online');
+    return true;
+  }catch(e){
+    console.error('Supabase init error:',e);
+    setSyncStatus('offline');
+    // Fallback sur localStorage
+    initStateLocal();
+    return false;
+  }
+}
+
+function setSyncStatus(status){
+  const dot=$('syncDot'),txt=$('syncText');
+  if(!dot)return;
+  dot.className='sync-dot '+status;
+  const labels={online:'En ligne',syncing:'Synchronisation…',error:'Erreur sync',offline:'Hors ligne'};
+  if(txt)txt.textContent=labels[status]||status;
+}
+
+// ============================================================
+// LOAD FROM SUPABASE
+// ============================================================
+async function loadFromSupabase(){
+  S=JSON.parse(JSON.stringify(defaultState));
+  S.currentWeek=getCurWeek();
+  S.currentYear=getCurYear();
+
+  try{
+    // Config (semaine/année courante)
+    const {data:cfg}=await db.from('config').select('*');
+    if(cfg){
+      const weekCfg=cfg.find(c=>c.key==='currentWeek');
+      const yearCfg=cfg.find(c=>c.key==='currentYear');
+      if(weekCfg)S.currentWeek=weekCfg.value;
+      if(yearCfg)S.currentYear=yearCfg.value;
+    }
+
+    // Residents
+    const {data:res}=await db.from('residents').select('*').order('nom');
+    if(res){
+      S.residents=res.map(r=>({
+        id:r.id,nom:r.nom,regime:r.regime||'Normal',special:r.special||'',
+        portions:r.portions||1,adapt:r.adapt||'',
+        serviceMidi:r.service_midi||1,serviceSoir:r.service_soir||1
+      }));
+      // Affectations
+      res.forEach(r=>{S.affectations[r.id]={midi:r.lieu_midi||'',soir:r.lieu_soir||''}});
+    }
+
+    // Temporaires
+    const {data:temps}=await db.from('temporaires').select('*').eq('archived',false).order('date_arrivee',{ascending:false});
+    if(temps){
+      S.temporaires=temps.map(t=>({
+        id:t.id,nom:t.nom,dateArrivee:t.date_arrivee,dateDepart:t.date_depart,
+        lieuMidi:t.lieu_midi||'',lieuSoir:t.lieu_soir||'',
+        serviceMidi:t.service_midi||1,serviceSoir:t.service_soir||1,
+        regime:t.regime||'Normal',special:t.special||'',portions:t.portions||1,
+        adapt:t.adapt||'',habitudes:t.habitudes||null,archived:t.archived||false
+      }));
+    }
+
+    // Lieux
+    const {data:lieux}=await db.from('lieux').select('*');
+    if(lieux&&lieux.length>0){
+      S.lieux=lieux.map(l=>({
+        id:l.id,nom:l.nom,section:l.section||'',color:l.color||'#1a56db',
+        midi:l.midi!==false,soir:l.soir!==false,isStaffOnly:l.is_staff_only||false
+      }));
+    }
+
+    // Textures
+    const {data:tex}=await db.from('textures').select('*');
+    if(tex&&tex.length>0){
+      S.textures=tex.map(t=>({id:t.id,nom:t.nom,abrev:t.abrev||'',color:t.color||'#3b82f6',desc:t.description||''}));
+    }
+
+    // Régimes spéciaux
+    const {data:regs}=await db.from('regimes_speciaux').select('*');
+    if(regs&&regs.length>0){
+      S.regimesSpeciaux=regs.map(r=>({id:r.id,nom:r.nom,abrev:r.abrev||'',color:r.color||'#f59e0b',desc:r.description||''}));
+    }
+
+    // Groupes
+    const {data:grps}=await db.from('groupes').select('*');
+    if(grps&&grps.length>0){
+      S.groupes=grps.map(g=>({
+        id:g.id,nom:g.nom,lieuId:g.lieu_id||'',
+        vals:g.vals||Array(7).fill(0),valsSoir:g.vals_soir||Array(7).fill(0),
+        valsPn:g.vals_pn||Array(7).fill(0),valsSoirPn:g.vals_soir_pn||Array(7).fill(0)
+      }));
+    }
+
+    // Absences hebdo
+    const {data:abs}=await db.from('absences').select('*');
+    if(abs){
+      S.absences={};
+      abs.forEach(a=>{
+        if(!S.absences[a.semaine])S.absences[a.semaine]={};
+        S.absences[a.semaine][a.resident_id]=a.slots||Array(14).fill(false);
+      });
+    }
+
+    // Pique-nique
+    const {data:pn}=await db.from('piquenique').select('*');
+    if(pn){
+      S.piquenique={};
+      pn.forEach(p=>{
+        S.piquenique[p.semaine]=p.cles||{};
+      });
+    }
+
+    // Absences planifiées
+    const {data:absPlan}=await db.from('absences_planifiees').select('*').order('debut');
+    if(absPlan){
+      S.plannedAbsences=absPlan.map(a=>({
+        id:a.id,residentId:a.resident_id,motif:a.motif||'',note:a.note||'',
+        debut:a.debut,fin:a.fin,midi:a.midi!==false,soir:a.soir!==false
+      }));
+    }
+
+    // Print history
+    const {data:ph}=await db.from('print_history').select('*');
+    if(ph){
+      S.printHistory={};
+      ph.forEach(p=>{
+        S.printHistory[p.semaine]={
+          printDate:p.print_date,snapshot:p.snapshot||{},
+          modifications:p.modifications||[],bonCounter:p.bon_counter||0
+        };
+      });
+    }
+
+    // Bons de modification
+    const {data:bons}=await db.from('bons_modification').select('*').order('date',{ascending:false});
+    if(bons){
+      S.bonsModification=bons.map(b=>({
+        id:b.id,date:b.date,week:b.week,year:b.year,
+        dateDebut:b.date_debut,dateFin:b.date_fin,
+        bonNumber:b.bon_number,modificationsCount:b.modifications_count,
+        modifications:b.modifications||[]
+      }));
+    }
+
+    // Sauvegarder aussi en localStorage comme cache offline
+    localStorage.setItem('msp_state_cache',JSON.stringify(S));
+
+  }catch(e){
+    console.error('Load error:',e);
+    // Essayer le cache local
+    const cached=localStorage.getItem('msp_state_cache');
+    if(cached){
+      S=JSON.parse(cached);
+      toast('Mode hors ligne — données en cache','warn');
+      setSyncStatus('offline');
+    }
+  }
+}
+
+// ============================================================
+// SAVE TO SUPABASE
+// ============================================================
+let saveQueue=[];
+let saveTimer=null;
+
+function save(section='all'){
+  // Mettre à jour le cache local immédiatement
+  localStorage.setItem('msp_state_cache',JSON.stringify(S));
+  setSave('saving','⏳ Sync…');
+
+  // Debounce pour éviter trop d'appels
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(()=>pushToSupabase(section),800);
+}
+
+async function pushToSupabase(section='all'){
+  if(!db){setSave('saved','💾 Local');return}
+  setSyncStatus('syncing');
+  try{
+    if(section==='all'||section==='config'){
+      await db.from('config').upsert([
+        {key:'currentWeek',value:S.currentWeek},
+        {key:'currentYear',value:S.currentYear}
+      ],{onConflict:'key'});
+    }
+
+    if(section==='all'||section==='residents'){
+      // Upsert tous les résidents
+      if(S.residents.length>0){
+        const rows=S.residents.map(r=>({
+          id:r.id,nom:r.nom,regime:r.regime,special:r.special,
+          portions:r.portions,adapt:r.adapt,
+          service_midi:r.serviceMidi,service_soir:r.serviceSoir,
+          lieu_midi:S.affectations[r.id]?.midi||null,
+          lieu_soir:S.affectations[r.id]?.soir||null
+        }));
+        await db.from('residents').upsert(rows,{onConflict:'id'});
+      }
+    }
+
+    if(section==='all'||section==='temporaires'){
+      if(S.temporaires.length>0){
+        const rows=S.temporaires.map(t=>({
+          id:t.id,nom:t.nom,date_arrivee:t.dateArrivee,date_depart:t.dateDepart,
+          lieu_midi:t.lieuMidi||null,lieu_soir:t.lieuSoir||null,
+          service_midi:t.serviceMidi,service_soir:t.serviceSoir,
+          regime:t.regime,special:t.special,portions:t.portions,
+          adapt:t.adapt,habitudes:t.habitudes,archived:t.archived||false
+        }));
+        await db.from('temporaires').upsert(rows,{onConflict:'id'});
+      }
+    }
+
+    if(section==='all'||section==='lieux'){
+      if(S.lieux.length>0){
+        const rows=S.lieux.map(l=>({
+          id:l.id,nom:l.nom,section:l.section,color:l.color,
+          midi:l.midi,soir:l.soir,is_staff_only:l.isStaffOnly||false
+        }));
+        await db.from('lieux').upsert(rows,{onConflict:'id'});
+      }
+    }
+
+    if(section==='all'||section==='textures'){
+      if(S.textures.length>0){
+        const rows=S.textures.map(t=>({id:t.id,nom:t.nom,abrev:t.abrev,color:t.color,description:t.desc}));
+        await db.from('textures').upsert(rows,{onConflict:'id'});
+      }
+    }
+
+    if(section==='all'||section==='regimes'){
+      if(S.regimesSpeciaux.length>0){
+        const rows=S.regimesSpeciaux.map(r=>({id:r.id,nom:r.nom,abrev:r.abrev,color:r.color,description:r.desc}));
+        await db.from('regimes_speciaux').upsert(rows,{onConflict:'id'});
+      }
+    }
+
+    if(section==='all'||section==='groupes'){
+      if(S.groupes.length>0){
+        const rows=S.groupes.map(g=>({
+          id:g.id,nom:g.nom,lieu_id:g.lieuId,
+          vals:g.vals,vals_soir:g.valsSoir,
+          vals_pn:g.valsPn,vals_soir_pn:g.valsSoirPn
+        }));
+        await db.from('groupes').upsert(rows,{onConflict:'id'});
+      }
+    }
+
+    if(section==='all'||section==='absences'){
+      // Upsert les absences par semaine
+      const semaines=Object.keys(S.absences);
+      for(const sem of semaines){
+        const semData=S.absences[sem];
+        const rows=Object.keys(semData).map(rid=>({
+          semaine:sem,resident_id:rid,slots:semData[rid]
+        }));
+        if(rows.length>0){
+          // On supprime d'abord cette semaine puis on réinsère
+          await db.from('absences').delete().eq('semaine',sem);
+          await db.from('absences').insert(rows);
+        }
+      }
+    }
+
+    if(section==='all'||section==='piquenique'){
+      const semaines=Object.keys(S.piquenique);
+      for(const sem of semaines){
+        await db.from('piquenique').delete().eq('semaine',sem);
+        await db.from('piquenique').insert({semaine:sem,cles:S.piquenique[sem]});
+      }
+    }
+
+    if(section==='all'||section==='absences_planifiees'){
+      if(S.plannedAbsences.length>0){
+        const rows=S.plannedAbsences.map(a=>({
+          id:a.id,resident_id:a.residentId,motif:a.motif,note:a.note,
+          debut:a.debut,fin:a.fin,midi:a.midi,soir:a.soir
+        }));
+        await db.from('absences_planifiees').upsert(rows,{onConflict:'id'});
+      }
+    }
+
+    if(section==='all'||section==='print_history'){
+      const rows=Object.keys(S.printHistory).map(sem=>({
+        semaine:sem,
+        print_date:S.printHistory[sem].printDate,
+        snapshot:S.printHistory[sem].snapshot,
+        modifications:S.printHistory[sem].modifications,
+        bon_counter:S.printHistory[sem].bonCounter||0
+      }));
+      if(rows.length>0)await db.from('print_history').upsert(rows,{onConflict:'semaine'});
+    }
+
+    if(section==='all'||section==='bons'){
+      if(S.bonsModification.length>0){
+        const rows=S.bonsModification.map(b=>({
+          id:b.id,date:b.date,week:b.week,year:b.year,
+          date_debut:b.dateDebut,date_fin:b.dateFin,
+          bon_number:b.bonNumber,modifications_count:b.modificationsCount,
+          modifications:b.modifications
+        }));
+        await db.from('bons_modification').upsert(rows,{onConflict:'id'});
+      }
+    }
+
+    setSave('saved','☁️ Synchronisé');
+    setSyncStatus('online');
+    const ls=$('lastSave');
+    if(ls)ls.textContent=new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+
+  }catch(e){
+    console.error('Save error:',e);
+    setSave('error','⚠️ Erreur sync');
+    setSyncStatus('error');
+    toast('Erreur de synchronisation — données sauvées en local','warn');
+  }
+}
+
+// ============================================================
+// DELETE HELPERS (Supabase)
+// ============================================================
+async function dbDelete(table,id,field='id'){
+  if(!db)return;
+  await db.from(table).delete().eq(field,id);
+}
+
+// ============================================================
+// FALLBACK LOCAL (si Supabase indisponible)
+// ============================================================
+function initStateLocal(){
+  try{
+    const cached=localStorage.getItem('msp_state_cache');
+    if(cached){S=JSON.parse(cached)}
+    else{
+      S=JSON.parse(JSON.stringify(defaultState));
+      S.currentWeek=getCurWeek();S.currentYear=getCurYear();
+    }
+  }catch(e){
+    S=JSON.parse(JSON.stringify(defaultState));
+    S.currentWeek=getCurWeek();S.currentYear=getCurYear();
+  }
+}
+
+// ============================================================
+// LOADING SCREEN
+// ============================================================
+function setLoading(msg){const el=$('loading-msg');if(el)el.textContent=msg}
+function hideLoading(){const el=$('loading-screen');if(el)el.classList.add('hidden')}
+
+// ============================================================
+// TOAST
+// ============================================================
+function toast(msg,type='info',dur=3000){
+  const c=$('toastBox');if(!c)return;
+  const t=document.createElement('div');
+  t.className=`toast t-${type}`;
+  const icons={success:'✅',error:'❌',warn:'⚠️',info:'ℹ️'};
+  t.innerHTML=`<span style="font-size:16px">${icons[type]||'ℹ️'}</span><span>${msg}</span>`;
+  c.appendChild(t);
+  setTimeout(()=>{t.classList.add('hiding');setTimeout(()=>t.remove(),250)},dur);
+}
+
+function setSave(cls,txt){const d=$('saveDot'),t=$('saveText');if(d)d.className='save-dot '+cls;if(t)t.textContent=txt}
+
+// ============================================================
+// NAVIGATION
+// ============================================================
+function go(id,btn){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  const v=$('v-'+id);if(v)v.classList.add('active');
+  if(btn)btn.classList.add('active');
+  closeMobile();
+  renderView(id);
+}
+
+function renderView(id){
+  const map={dashboard:renderDash,commande:renderCommande,totaux:renderTotaux,mep:renderMEP,groupes:renderGroupes,historique:renderHist,residents:renderResidents,temporaires:renderTemporaires,absences:renderAbsences,regimes:renderRegimes,lieux:renderLieux,fiche:renderFiche,reporting:renderReporting,adminpanel:()=>{initReportingSelectors();renderAdmTab()}};
+  try{if(map[id])map[id]()}catch(e){console.error('Render error:',id,e);toast('Erreur affichage','error')}
+}
+
+function changeWeek(w){S.currentWeek=w;save('config');updateFooter();const v=document.querySelector('.view.active');if(v)renderView(v.id.replace('v-',''))}
+function changeYear(y){S.currentYear=y;save('config');updateFooter();const v=document.querySelector('.view.active');if(v)renderView(v.id.replace('v-',''))}
+function updateFooter(){const f=$('footerWeek');if(f)f.textContent=`Semaine ${S.currentWeek} · ${S.currentYear}`}
+
+function toggleMobile(){$('sidebar').classList.toggle('mobile-open');$('sidebarOverlay').classList.toggle('active');$('mobileMenuBtn').classList.toggle('active')}
+function closeMobile(){$('sidebar').classList.remove('mobile-open');$('sidebarOverlay').classList.remove('active');$('mobileMenuBtn').classList.remove('active')}
+
+function openModal(id){$(id).classList.add('open')}
+function closeModal(id){$(id).classList.remove('open')}
+function showConfirm(title,msg,cb){$('cf-title').textContent=title;$('cf-msg').textContent=msg;_cfCb=cb;$('cf-ok').onclick=()=>{if(_cfCb)_cfCb();closeModal('modal-confirm');_cfCb=null};openModal('modal-confirm')}
+
+// ============================================================
+// ADMIN MODES
+// ============================================================
+
+
+// ============================================================
+// MODIFICATION TRACKING
+// ============================================================
+function trackPrint(){const w=wk();if(!S.printHistory)S.printHistory={};if(!S.printHistory[w]){S.printHistory[w]={printDate:new Date().toISOString(),snapshot:captureState(),modifications:[],bonCounter:0};auditLog('COMMANDE_IMPRIMEE',{semaine:w});save('print_history');}updateBonBtn()}
+function captureState(){const w=wk();return{absences:JSON.parse(JSON.stringify(S.absences[w]||{})),piquenique:JSON.parse(JSON.stringify(S.piquenique[w]||{}))}}
+function trackMod(pid,dayIdx,svc,oldV,newV){const w=wk();if(!S.printHistory||!S.printHistory[w]||!S.printHistory[w].printDate)return;let name='';const r=S.residents.find(x=>x.id===pid);if(r)name=r.nom;else{const t=(S.temporaires||[]).find(x=>x.id===pid);if(t)name=t.nom+' (AT)'}S.printHistory[w].modifications.push({date:new Date().toISOString(),personId:pid,personName:name,dayIndex:dayIdx,dayName:DAYS[dayIdx],service:svc,oldValue:oldV,newValue:newV});save('print_history');updateBonBtn()}
+function updateBonBtn(){const w=wk(),b=$('btn-bon');if(!b)return;const has=S.printHistory?.[w]?.modifications?.length>0;b.style.display=has?'inline-flex':'none'}
+
+// ============================================================
+// RENDER — DASHBOARD
+// ============================================================
+function renderDash(){
+  const sub=$('dash-sub');if(sub)sub.textContent=`Semaine ${S.currentWeek} — ${S.currentYear}`;
+  const w=wk(),absC=Object.values(S.absences[w]||{}).reduce((a,s)=>a+s.filter(Boolean).length,0);
+  const activeTempos=(S.temporaires||[]).filter(t=>isTempoActive(t,S.currentWeek,S.currentYear)).length;
+  $('dash-cards').innerHTML=`
+    <div class="stat-card c-blue"><div class="stat-label">Résidents</div><div class="stat-value">${S.residents.length}</div></div>
+    <div class="stat-card c-teal"><div class="stat-label">Accueil Temp.</div><div class="stat-value">${activeTempos}</div></div>
+    <div class="stat-card c-green"><div class="stat-label">Lieux</div><div class="stat-value">${S.lieux.filter(l=>!l.isStaffOnly).length}</div></div>
+    <div class="stat-card c-amber"><div class="stat-label">Absences sem.</div><div class="stat-value">${absC}</div></div>
+    <div class="stat-card c-red"><div class="stat-label">Régimes sp.</div><div class="stat-value">${S.regimesSpeciaux.length}</div></div>`;
+}
+
+// ============================================================
+// RENDER — COMMANDE / ABSENCES
+// ============================================================
+function filterCmd(lid,btn){cmdFilter=lid;document.querySelectorAll('#cmd-filters .filter-btn').forEach(b=>b.classList.remove('active'));if(btn)btn.classList.add('active');renderCommande()}
+
+function togglePresence(pid,dayIdx,svc){
+  const w=wk();if(!S.absences[w])S.absences[w]={};if(!S.absences[w][pid])S.absences[w][pid]=Array(14).fill(false);
+  const slot=dayIdx*2+(svc==='soir'?1:0);if(!S.piquenique[w])S.piquenique[w]={};const pk=`${pid}_${dayIdx}_${svc}`;
+  const isAbs=S.absences[w][pid][slot],isPn=S.piquenique[w][pk];
+  let oldV='OK',newV='';
+  if(isAbs)oldV='ABS';else if(isPn)oldV='PN';
+  if(!isAbs&&!isPn){S.absences[w][pid][slot]=true;newV='ABS'}
+  else if(isAbs&&!isPn){S.absences[w][pid][slot]=false;S.piquenique[w][pk]=true;newV='PN'}
+  else{S.piquenique[w][pk]=false;newV='OK'}
+  trackMod(pid,dayIdx,svc,oldV,newV);
+  auditLog('ABSENCE_MODIFIEE',{resident:pid,jour:DAYS[dayIdx],service:svc,de:oldV,vers:newV});
+  save('absences');
+  // Sauvegarder piquenique aussi
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(()=>pushToSupabase('piquenique'),800);
+  renderCommande();
+}
+
+function renderCommande(){
+  const f=$('cmd-filters');if(!f)return;
+  f.innerHTML=`<button class="filter-btn ${cmdFilter==='all'?'active':''}" onclick="filterCmd('all',this)">Tous</button>`;
+  S.lieux.filter(l=>!l.isStaffOnly).forEach(l=>{f.innerHTML+=`<button class="filter-btn ${cmdFilter===l.id?'active':''}" onclick="filterCmd('${l.id}',this)">${l.nom}</button>`});
+  
+  const search=($('cmd-search')?.value||'').toLowerCase();
+  let persons=S.residents.filter(r=>{if(cmdFilter!=='all'&&S.affectations[r.id]?.midi!==cmdFilter)return false;return!search||r.nom.toLowerCase().includes(search)});
+  const tempos=(S.temporaires||[]).filter(t=>{if(!isTempoActive(t,S.currentWeek,S.currentYear))return false;if(cmdFilter!=='all'&&t.lieuMidi!==cmdFilter&&t.lieuSoir!==cmdFilter)return false;return true});
+  persons=[...persons,...tempos.map(t=>({...t,isTempo:true}))];
+  persons.sort((a,b)=>{const la=a.isTempo?(a.lieuMidi||''):(S.affectations[a.id]?.midi||''),lb=b.isTempo?(b.lieuMidi||''):(S.affectations[b.id]?.midi||'');return la.localeCompare(lb)||(a.nom||'').localeCompare(b.nom||'')});
+
+  $('cmd-count').textContent=persons.length;
+  const sub=$('cmd-sub');if(sub)sub.textContent=`S${S.currentWeek} — ${S.currentYear}`;
+  const w=wk();
+  
+  let h=`<table style="min-width:1100px"><thead><tr><th style="min-width:170px">Résident</th><th style="min-width:80px">Régime</th>`;
+  DAYS.forEach((d,i)=>{h+=`<th colspan="2" style="text-align:center;border-bottom:2px solid ${DAY_C[i]}"><div style="font-size:9px;font-weight:800;color:${DAY_C[i]}">${d.toUpperCase()}</div><div style="display:flex;justify-content:space-around;margin-top:2px;font-size:8px;color:var(--txt3)"><span>MIDI</span><span>SOIR</span></div></th>`});
+  h+=`</tr></thead><tbody>`;
+
+  persons.forEach(p=>{
+    const tex=getTex(p.regime),pid=p.id;
+    if(!S.absences[w])S.absences[w]={};if(!S.absences[w][pid])S.absences[w][pid]=Array(14).fill(false);
+    for(let di=0;di<7;di++){if(isPlannedAbs(pid,di,'midi'))S.absences[w][pid][di*2]=true;if(isPlannedAbs(pid,di,'soir'))S.absences[w][pid][di*2+1]=true}
+    
+    h+=`<tr ${p.isTempo?'style="border-left:3px solid var(--teal)"':''}>`;
+    h+=`<td style="font-weight:600">${p.nom} ${p.isTempo?'<span class="tempo-badge">AT</span>':''}</td>`;
+    h+=`<td><span class="badge" style="background:${tex?.color||'#3b82f6'}15;color:${tex?.color||'#3b82f6'}">${p.regime}${p.special?' +'+p.special:''}</span></td>`;
+    
+    DAYS.forEach((_,di)=>{
+      const ms=di*2,ss=di*2+1;
+      const mPl=isPlannedAbs(pid,di,'midi'),sPl=isPlannedAbs(pid,di,'soir');
+      const past=isDatePast(di);
+      const mAbs=S.absences[w][pid][ms],sAbs=S.absences[w][pid][ss];
+      const mPn=S.piquenique[w]?.[`${pid}_${di}_midi`]||false,sPn=S.piquenique[w]?.[`${pid}_${di}_soir`]||false;
+      let mHab=true,sHab=true;
+      if(p.isTempo&&p.habitudes){mHab=p.habitudes[ms]!==false;sHab=p.habitudes[ss]!==false}
+      
+      const mkBtn=(abs,pn,planned,isPast,hab,svc)=>{
+        if(!hab)return`<button class="repas-btn" disabled style="opacity:.3;cursor:not-allowed;background:transparent;color:var(--txt3);border-color:transparent">—</button>`;
+        let cls='repas-ok',txt='OK',dis='';
+        if(abs){cls='repas-abs';txt='ABS'}else if(pn){cls='repas-pn';txt='PN'}
+        if(planned)dis='disabled style="opacity:.5;cursor:not-allowed"';
+        else if(isPast&&!getPerms().canEdit)dis='disabled style="opacity:.4;cursor:not-allowed" title="Date passée"';
+        return`<button class="repas-btn ${cls}" onclick="togglePresence('${pid}',${di},'${svc}')" ${dis}>${txt}</button>`;
+      };
+      
+      h+=`<td colspan="2" style="padding:0"><div style="display:flex"><div style="width:50%;padding:3px;border-right:1px solid var(--border)">${mkBtn(mAbs,mPn,mPl,past,mHab,'midi')}</div><div style="width:50%;padding:3px">${mkBtn(sAbs,sPn,sPl,past,sHab,'soir')}</div></div></td>`;
+    });
+    h+=`</tr>`;
+  });
+  h+=`</tbody></table>`;
+  $('cmd-table').innerHTML=h;
+}
+
+function resetWeek(){showConfirm('Réinitialiser les absences ?',`Semaine ${S.currentWeek}/${S.currentYear}`,async()=>{
+  const w=wk();
+  delete S.absences[w];delete S.piquenique[w];
+  if(db){
+    await db.from('absences').delete().eq('semaine',w);
+    await db.from('piquenique').delete().eq('semaine',w);
+  }
+  save('config');renderCommande();toast('Absences réinitialisées','success')
+})}
+
+// ============================================================
+// RENDER — TOTAUX (Cuisine Centrale)
+// ============================================================
+function renderTotaux(){
+  const sub=$('tot-sub');if(sub)sub.textContent=`S${S.currentWeek} — ${S.currentYear}`;
+  const c=$('tot-content');if(!c)return;
+  updateBonBtn();
+  const w=wk();
+  
+  let bandeau='';
+  if(S.printHistory?.[w]?.printDate){
+    const pd=new Date(S.printHistory[w].printDate);
+    bandeau=`<div class="bandeau-print"><strong>📤 COMMANDE IMPRIMÉE</strong><p>Le ${pd.toLocaleDateString('fr-FR')} à ${pd.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</p></div>`;
+  }
+  
+  const sites={};
+  S.lieux.filter(l=>!l.isStaffOnly).forEach(l=>{const s=l.section||'Autre';if(!sites[s])sites[s]=[];sites[s].push(l)});
+  
+  let html='';
+  Object.keys(sites).sort().forEach(siteName=>{
+    const regSet=new Set(),pnSet=new Set();
+    const data=[];
+    
+    for(let di=0;di<7;di++){
+      const jM={jour:DAYS[di],service:'Midi',regimes:{},pnRegimes:{},tem:0};
+      const jS={jour:DAYS[di],service:'Soir',regimes:{},pnRegimes:{},tem:0};
+      
+      sites[siteName].forEach(lieu=>{
+        S.residents.filter(r=>S.affectations[r.id]?.midi===lieu.id).forEach(p=>{
+          const abs=S.absences[w]?.[p.id]||[];
+          if(!abs[di*2]){const pk=`${p.id}_${di}_midi`,isPn=S.piquenique[w]?.[pk];const k=`${p.regime}${p.special?' + '+p.special:''}`;if(isPn){pnSet.add(k);jM.pnRegimes[k]=(jM.pnRegimes[k]||0)+1}else{regSet.add(k);jM.regimes[k]=(jM.regimes[k]||0)+1}}
+        });
+        S.residents.filter(r=>S.affectations[r.id]?.soir===lieu.id).forEach(p=>{
+          const abs=S.absences[w]?.[p.id]||[];
+          if(!abs[di*2+1]){const pk=`${p.id}_${di}_soir`,isPn=S.piquenique[w]?.[pk];const k=`${p.regime}${p.special?' + '+p.special:''}`;if(isPn){pnSet.add(k);jS.pnRegimes[k]=(jS.pnRegimes[k]||0)+1}else{regSet.add(k);jS.regimes[k]=(jS.regimes[k]||0)+1}}
+        });
+        (S.temporaires||[]).filter(t=>isTempoActive(t,S.currentWeek,S.currentYear)).forEach(t=>{
+          if(t.lieuMidi===lieu.id){const ms=di*2;if(!t.habitudes||t.habitudes[ms]!==false){const pk=`${t.id}_${di}_midi`,isPn=S.piquenique[w]?.[pk];const k=`${t.regime}${t.special?' + '+t.special:''}`;if(isPn){pnSet.add(k);jM.pnRegimes[k]=(jM.pnRegimes[k]||0)+1}else{regSet.add(k);jM.regimes[k]=(jM.regimes[k]||0)+1}}}
+          if(t.lieuSoir===lieu.id){const ss=di*2+1;if(!t.habitudes||t.habitudes[ss]!==false){const pk=`${t.id}_${di}_soir`,isPn=S.piquenique[w]?.[pk];const k=`${t.regime}${t.special?' + '+t.special:''}`;if(isPn){pnSet.add(k);jS.pnRegimes[k]=(jS.pnRegimes[k]||0)+1}else{regSet.add(k);jS.regimes[k]=(jS.regimes[k]||0)+1}}}
+        });
+        S.groupes.filter(g=>g.lieuId===lieu.id).forEach(g=>{regSet.add('Normal');jM.regimes['Normal']=(jM.regimes['Normal']||0)+(g.vals?.[di]||0);jS.regimes['Normal']=(jS.regimes['Normal']||0)+(g.valsSoir?.[di]||0)});
+      });
+      
+      let hm=false,hs=false;
+      Object.values(jM.regimes).forEach(v=>{if(v>1)hm=true});
+      Object.values(jS.regimes).forEach(v=>{if(v>1)hs=true});
+      jM.tem=hm?1:0;jS.tem=hs?1:0;
+      data.push(jM,jS);
+    }
+    
+    const regs=[...regSet].sort(),pnRegs=[...pnSet].sort();
+    
+    html+=`<div class="table-box" style="margin-bottom:24px"><div class="table-top"><h2>${siteName}</h2></div><table style="min-width:900px"><thead><tr><th style="min-width:120px">JOUR</th>`;
+    regs.forEach(r=>{const t=getTex(r.split(' + ')[0]);html+=`<th style="text-align:center;color:${t?.color||'#3b82f6'}">${r.toUpperCase()}</th>`});
+    pnRegs.forEach(r=>{html+=`<th style="text-align:center;color:var(--amber);background:var(--amber-bg)">PN ${r.toUpperCase()}</th>`});
+    html+=`<th style="text-align:center;color:var(--teal)">TÉM.</th><th style="text-align:center;font-weight:800">TOTAL</th></tr></thead><tbody>`;
+    
+    data.forEach((j,idx)=>{
+      const di=Math.floor(idx/2),ic=j.service==='Midi'?'☀':'🌙';
+      let tot=0;regs.forEach(r=>tot+=(j.regimes[r]||0));pnRegs.forEach(r=>tot+=(j.pnRegimes[r]||0));
+      html+=`<tr><td style="color:${DAY_C[di]};font-weight:600">${ic} ${j.jour} ${j.service}</td>`;
+      regs.forEach(r=>{const v=j.regimes[r]||0;html+=`<td style="text-align:center;font-weight:600">${v||'—'}</td>`});
+      pnRegs.forEach(r=>{const v=j.pnRegimes[r]||0;html+=`<td style="text-align:center;font-weight:600;color:var(--amber);background:var(--amber-bg)">${v||'—'}</td>`});
+      html+=`<td style="text-align:center;font-weight:600;color:var(--teal)">${j.tem||'—'}</td>`;
+      html+=`<td style="text-align:center;font-weight:700;font-size:15px">${tot}</td></tr>`;
+    });
+    html+=`</tbody></table></div>`;
+  });
+  
+  c.innerHTML=bandeau+(html||'<div class="empty-state">Aucune donnée</div>');
+}
+
+// ============================================================
+// PRINT TOTAUX
+// ============================================================
+function printTotaux(){
+  const w=wk(),week=S.currentWeek,year=S.currentYear;
+  const mon=getDateForDay(week,0),sun=getDateForDay(week,6);
+  $('print-msg').textContent=`Envoyer la commande pour la semaine ${week} ?`;
+  $('print-dates').textContent=`Du ${fmtDate(mon.toISOString())} au ${fmtDate(sun.toISOString())}`;
+  openModal('modal-print');
+}
+
+function confirmPrint(){
+  closeModal('modal-print');
+  trackPrint();
+  const w=wk(),week=S.currentWeek,year=S.currentYear;
+  const mon=getDateForDay(week,0),sun=getDateForDay(week,6);
+  const sites={};S.lieux.filter(l=>!l.isStaffOnly).forEach(l=>{const s=l.section||'Autre';if(!sites[s])sites[s]=[];sites[s].push(l)});
+  
+  const pw=window.open('','_blank');
+  pw.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Commande S${week}</title><style>@page{margin:10mm;size:A4 landscape}*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;font-size:10px;color:#000}h1{text-align:center;font-size:18px;margin-bottom:5px}h2{font-size:14px;margin:15px 0 8px;border-bottom:2px solid #000;padding-bottom:3px}table{width:100%;border-collapse:collapse;margin-bottom:15px;page-break-inside:avoid}th,td{border:1px solid #000;padding:3px;text-align:center}th{background:#e0e0e0;font-weight:700}.tot{background:#d4edda;font-weight:700}.pn-cell{background:#fff3cd;color:#856404}</style></head><body>`);
+  pw.document.write(`<h1>COMMANDE CUISINE CENTRALE</h1><p style="text-align:center;font-size:12px;margin-bottom:20px">Semaine ${week} / ${year} — Du ${fmtDate(mon.toISOString())} au ${fmtDate(sun.toISOString())}<br>Maison Saint-Paul — ANDAPEI Lot-et-Garonne</p>`);
+  
+  Object.keys(sites).sort().forEach(siteName=>{
+    const regMap=new Map(),pnMap=new Map();
+    sites[siteName].forEach(lieu=>{
+      for(let di=0;di<7;di++){
+        const addP=(p,svc)=>{
+          const slot=di*2+(svc==='soir'?1:0);
+          const abs=S.absences[w]?.[p.id]||[];
+          if(abs[slot])return;
+          const pk=`${p.id}_${di}_${svc}`,isPn=S.piquenique[w]?.[pk];
+          const k=`${p.regime}${p.special?' + '+p.special:''}`;
+          const map=isPn?pnMap:regMap;
+          if(!map.has(k))map.set(k,{midi:Array(7).fill(0),soir:Array(7).fill(0)});
+          map.get(k)[svc][di]++;
+        };
+        S.residents.filter(r=>S.affectations[r.id]?.midi===lieu.id).forEach(p=>addP(p,'midi'));
+        S.residents.filter(r=>S.affectations[r.id]?.soir===lieu.id).forEach(p=>addP(p,'soir'));
+        (S.temporaires||[]).filter(t=>isTempoActive(t,week,year)).forEach(t=>{
+          if(t.lieuMidi===lieu.id&&(!t.habitudes||t.habitudes[di*2]!==false))addP(t,'midi');
+          if(t.lieuSoir===lieu.id&&(!t.habitudes||t.habitudes[di*2+1]!==false))addP(t,'soir');
+        });
+        S.groupes.filter(g=>g.lieuId===lieu.id).forEach(g=>{
+          if(!regMap.has('Normal'))regMap.set('Normal',{midi:Array(7).fill(0),soir:Array(7).fill(0)});
+          regMap.get('Normal').midi[di]+=(g.vals?.[di]||0);
+          regMap.get('Normal').soir[di]+=(g.valsSoir?.[di]||0);
+        });
+      }
+    });
+    
+    const regs=[...regMap.entries()].filter(([_,d])=>d.midi.reduce((a,b)=>a+b,0)+d.soir.reduce((a,b)=>a+b,0)>0).sort((a,b)=>a[0].localeCompare(b[0]));
+    const pns=[...pnMap.entries()].filter(([_,d])=>d.midi.reduce((a,b)=>a+b,0)+d.soir.reduce((a,b)=>a+b,0)>0).sort((a,b)=>a[0].localeCompare(b[0]));
+    if(!regs.length&&!pns.length)return;
+    
+    pw.document.write(`<h2>${siteName.toUpperCase()}</h2><table><thead><tr><th>RÉGIME</th>`);
+    DAYS_S.forEach((d)=>pw.document.write(`<th colspan="2">${d}<div style="font-size:7px;display:flex;justify-content:space-around"><span>M</span><span>S</span></div></th>`));
+    pw.document.write(`<th class="tot">TOT</th></tr></thead><tbody>`);
+    
+    regs.forEach(([k,d])=>{
+      const tot=d.midi.reduce((a,b)=>a+b,0)+d.soir.reduce((a,b)=>a+b,0);
+      pw.document.write(`<tr><td style="text-align:left;font-weight:600">${k}</td>`);
+      for(let i=0;i<7;i++)pw.document.write(`<td>${d.midi[i]||'—'}</td><td>${d.soir[i]||'—'}</td>`);
+      pw.document.write(`<td class="tot">${tot}</td></tr>`);
+    });
+    pns.forEach(([k,d])=>{
+      const tot=d.midi.reduce((a,b)=>a+b,0)+d.soir.reduce((a,b)=>a+b,0);
+      pw.document.write(`<tr><td style="text-align:left;font-weight:600" class="pn-cell">PN ${k}</td>`);
+      for(let i=0;i<7;i++)pw.document.write(`<td class="pn-cell">${d.midi[i]||'—'}</td><td class="pn-cell">${d.soir[i]||'—'}</td>`);
+      pw.document.write(`<td class="tot">${tot}</td></tr>`);
+    });
+    pw.document.write(`</tbody></table>`);
+  });
+  
+  pw.document.write(`</body></html>`);pw.document.close();pw.print();
+  toast('Commande imprimée','success');
+  renderTotaux();
+}
+
+// ============================================================
+// EMAIL
+// ============================================================
+function buildCommandeHTML(){
+  const w=wk(),week=S.currentWeek,year=S.currentYear;
+  const mon=getDateForDay(week,0),sun=getDateForDay(week,6);
+  const sites={};S.lieux.filter(l=>!l.isStaffOnly).forEach(l=>{const s=l.section||'Autre';if(!sites[s])sites[s]=[];sites[s].push(l)});
+
+  let html=`<h2 style="color:#1a56db;font-family:Arial,sans-serif">Commande Cuisine Centrale</h2>
+<p style="font-family:Arial,sans-serif;color:#6b7280">Semaine ${week} / ${year} — Du ${fmtDate(mon.toISOString())} au ${fmtDate(sun.toISOString())}<br>Maison Saint-Paul — ANDAPEI Lot-et-Garonne</p>`;
+
+  Object.keys(sites).sort().forEach(siteName=>{
+    const regMap=new Map(),pnMap=new Map();
+    sites[siteName].forEach(lieu=>{
+      for(let di=0;di<7;di++){
+        const addP=(p,svc)=>{
+          const slot=di*2+(svc==='soir'?1:0);
+          const abs=S.absences[w]?.[p.id]||[];if(abs[slot])return;
+          const pk=`${p.id}_${di}_${svc}`,isPn=S.piquenique[w]?.[pk];
+          const k=`${p.regime}${p.special?' + '+p.special:''}`;
+          const map=isPn?pnMap:regMap;
+          if(!map.has(k))map.set(k,{midi:Array(7).fill(0),soir:Array(7).fill(0)});
+          map.get(k)[svc][di]++;
+        };
+        S.residents.filter(r=>S.affectations[r.id]?.midi===lieu.id).forEach(p=>addP(p,'midi'));
+        S.residents.filter(r=>S.affectations[r.id]?.soir===lieu.id).forEach(p=>addP(p,'soir'));
+        (S.temporaires||[]).filter(t=>isTempoActive(t,week,year)).forEach(t=>{
+          if(t.lieuMidi===lieu.id&&(!t.habitudes||t.habitudes[di*2]!==false))addP(t,'midi');
+          if(t.lieuSoir===lieu.id&&(!t.habitudes||t.habitudes[di*2+1]!==false))addP(t,'soir');
+        });
+        S.groupes.filter(g=>g.lieuId===lieu.id).forEach(g=>{
+          if(!regMap.has('Normal'))regMap.set('Normal',{midi:Array(7).fill(0),soir:Array(7).fill(0)});
+          regMap.get('Normal').midi[di]+=(g.vals?.[di]||0);
+          regMap.get('Normal').soir[di]+=(g.valsSoir?.[di]||0);
+        });
+      }
+    });
+
+    const regs=[...regMap.entries()].filter(([_,d])=>d.midi.reduce((a,b)=>a+b,0)+d.soir.reduce((a,b)=>a+b,0)>0).sort((a,b)=>a[0].localeCompare(b[0]));
+    const pns=[...pnMap.entries()].filter(([_,d])=>d.midi.reduce((a,b)=>a+b,0)+d.soir.reduce((a,b)=>a+b,0)>0).sort((a,b)=>a[0].localeCompare(b[0]));
+    if(!regs.length&&!pns.length)return;
+
+    html+=`<h3 style="font-family:Arial,sans-serif;margin-top:20px;border-bottom:2px solid #1a56db;padding-bottom:5px">${siteName.toUpperCase()}</h3>`;
+    html+=`<table border="1" cellpadding="4" cellspacing="0" style="border-collapse:collapse;font-family:Arial,sans-serif;font-size:11px;margin-bottom:16px;width:100%">`;
+    html+=`<thead><tr style="background:#e0e0e0"><th>RÉGIME</th>`;
+    DAYS_S.forEach(d=>html+=`<th colspan="2">${d}<br><span style="font-size:8px">M / S</span></th>`);
+    html+=`<th>TOT</th></tr></thead><tbody>`;
+    
+    regs.forEach(([k,d])=>{
+      const tot=d.midi.reduce((a,b)=>a+b,0)+d.soir.reduce((a,b)=>a+b,0);
+      html+=`<tr><td style="font-weight:bold;text-align:left;padding:3px 6px">${k}</td>`;
+      for(let i=0;i<7;i++)html+=`<td style="text-align:center">${d.midi[i]||'—'}</td><td style="text-align:center">${d.soir[i]||'—'}</td>`;
+      html+=`<td style="text-align:center;font-weight:bold;background:#d4edda">${tot}</td></tr>`;
+    });
+    pns.forEach(([k,d])=>{
+      const tot=d.midi.reduce((a,b)=>a+b,0)+d.soir.reduce((a,b)=>a+b,0);
+      html+=`<tr style="background:#fff3cd"><td style="font-weight:bold;text-align:left;padding:3px 6px">PN ${k}</td>`;
+      for(let i=0;i<7;i++)html+=`<td style="text-align:center">${d.midi[i]||'—'}</td><td style="text-align:center">${d.soir[i]||'—'}</td>`;
+      html+=`<td style="text-align:center;font-weight:bold">${tot}</td></tr>`;
+    });
+    html+=`</tbody></table>`;
+  });
+  return html;
+}
+
+function sendEmailCommande(){
+  const week=S.currentWeek,year=S.currentYear;
+  $('email-semaine').textContent=`S${week} / ${year}`;
+  $('email-note').value='';
+  $('email-status').style.display='none';
+  openModal('modal-email');
+}
+
+async function doSendEmail(){
+  if(!EMAILJS_PUBLIC_KEY){
+    // Afficher instructions de configuration
+    $('email-status').style.display='block';
+    $('email-status').style.background='var(--amber-bg)';
+    $('email-status').style.color='var(--amber)';
+    $('email-status').style.border='1px solid var(--amber-border)';
+    $('email-status').innerHTML=`⚠️ <strong>Configuration EmailJS requise</strong><br>
+      <ol style="margin-top:8px;padding-left:20px;line-height:2;font-size:12px">
+        <li>Crée un compte gratuit sur <a href="https://emailjs.com" target="_blank">emailjs.com</a></li>
+        <li>Ajoute un service email (Gmail ou autre)</li>
+        <li>Crée un template avec les variables : <code>{{semaine}}</code>, <code>{{contenu_html}}</code>, <code>{{note}}</code></li>
+        <li>Copie ton <strong>Service ID</strong>, <strong>Template ID</strong> et <strong>Public Key</strong></li>
+        <li>Remplace les valeurs en haut du fichier HTML</li>
+      </ol>`;
+    return;
+  }
+
+  const btn=$('btn-send-email');
+  btn.disabled=true;btn.textContent='⏳ Envoi…';
+
+  try{
+    emailjs.init(EMAILJS_PUBLIC_KEY);
+    const week=S.currentWeek,year=S.currentYear;
+    const mon=getDateForDay(week,0),sun=getDateForDay(week,6);
+    const note=$('email-note').value.trim();
+    const htmlContent=buildCommandeHTML();
+
+    await emailjs.send(EMAILJS_SERVICE_ID,EMAILJS_TEMPLATE_ID,{
+      semaine:`Semaine ${week} - ${year}`,
+      periode:`Du ${fmtDate(mon.toISOString())} au ${fmtDate(sun.toISOString())}`,
+      etablissement:'Maison Saint-Paul - ANDAPEI Lot-et-Garonne',
+      to_email:EMAIL_CUISINE,
+      cc_email:EMAIL_CC,
+      note:note||'Aucune remarque particulière.',
+      contenu_html:htmlContent
+    });
+
+    $('email-status').style.display='block';
+    $('email-status').style.background='var(--green-bg)';
+    $('email-status').style.color='var(--green)';
+    $('email-status').style.border='1px solid var(--green-border)';
+    $('email-status').innerHTML=`✅ Email envoyé avec succès à <strong>${EMAIL_CUISINE}</strong> (cc: ${EMAIL_CC})`;
+    toast('Commande envoyée par email','success');auditLog('EMAIL_ENVOYE',{semaine:wk(),destinataire:EMAIL_CUISINE});
+    btn.textContent='✅ Envoyé';
+    btn.disabled=false;
+    setTimeout(()=>{closeModal('modal-email');btn.textContent='📧 Envoyer';},3000);
+  }catch(e){
+    console.error('Email error:',e);
+    $('email-status').style.display='block';
+    $('email-status').style.background='var(--red-bg)';
+    $('email-status').style.color='var(--red)';
+    $('email-status').style.border='1px solid var(--red-border)';
+    $('email-status').innerHTML=`❌ Erreur d'envoi : ${e.text||e.message||'Vérifiez la configuration EmailJS'}`;
+    toast('Erreur envoi email','error');
+    btn.disabled=false;btn.textContent='📧 Envoyer';
+  }
+}
+
+// ============================================================
+// BON DE MODIFICATION
+// ============================================================
+function calcTotauxByLieu(weekData){
+  const totaux={};
+  S.lieux.filter(l=>!l.isStaffOnly).forEach(lieu=>{
+    const regMap=new Map();
+    for(let di=0;di<7;di++){
+      const addP=(p,svc)=>{
+        const slot=di*2+(svc==='soir'?1:0);
+        const abs=weekData.absences[p.id]||[];if(abs[slot])return;
+        const pk=`${p.id}_${di}_${svc}`,isPn=weekData.piquenique?.[pk]||false;
+        if(isPn)return;
+        const k=`${p.regime}${p.special?' + '+p.special:''}`;
+        if(!regMap.has(k))regMap.set(k,{midi:Array(7).fill(0),soir:Array(7).fill(0)});
+        regMap.get(k)[svc][di]++;
+      };
+      S.residents.filter(r=>S.affectations[r.id]?.midi===lieu.id).forEach(p=>addP(p,'midi'));
+      S.residents.filter(r=>S.affectations[r.id]?.soir===lieu.id).forEach(p=>addP(p,'soir'));
+      (S.temporaires||[]).filter(t=>isTempoActive(t,S.currentWeek,S.currentYear)).forEach(t=>{
+        if(t.lieuMidi===lieu.id&&(!t.habitudes||t.habitudes[di*2]!==false))addP(t,'midi');
+        if(t.lieuSoir===lieu.id&&(!t.habitudes||t.habitudes[di*2+1]!==false))addP(t,'soir');
+      });
+      S.groupes.filter(g=>g.lieuId===lieu.id).forEach(g=>{
+        if(!regMap.has('Normal'))regMap.set('Normal',{midi:Array(7).fill(0),soir:Array(7).fill(0)});
+        regMap.get('Normal').midi[di]+=(g.vals?.[di]||0);regMap.get('Normal').soir[di]+=(g.valsSoir?.[di]||0);
+      });
+    }
+    totaux[lieu.nom]=regMap;
+  });
+  return totaux;
+}
+
+function genererBon(){
+  const w=wk(),week=S.currentWeek,year=S.currentYear;
+  if(!S.printHistory[w]?.modifications?.length){toast('Aucune modification','warn');return}
+  if(!S.printHistory[w].bonCounter)S.printHistory[w].bonCounter=0;
+  S.printHistory[w].bonCounter++;
+  const bonNum=S.printHistory[w].bonCounter;
+  const mon=getDateForDay(week,0),sun=getDateForDay(week,6);
+  const dd=fmtDate(mon.toISOString()),df=fmtDate(sun.toISOString());
+  
+  const snapInit=S.printHistory[w].snapshot;
+  const snapCur={absences:JSON.parse(JSON.stringify(S.absences[w]||{})),piquenique:JSON.parse(JSON.stringify(S.piquenique[w]||{}))};
+  S.printHistory[w].snapshot=snapCur;save('print_history');
+  
+  const tAvant=calcTotauxByLieu(snapInit),tApres=calcTotauxByLieu(snapCur);
+  const sections={};S.lieux.filter(l=>!l.isStaffOnly).forEach(l=>{const s=l.section||'Autre';if(!sections[s])sections[s]=[];sections[s].push(l.nom)});
+  
+  const pw=window.open('','_blank');
+  pw.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Bon N°${bonNum}</title><style>@page{margin:8mm;size:A4 landscape}*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;font-size:10px}table{width:100%;border-collapse:collapse;margin-bottom:12px}th,td{border:1px solid #000;padding:2px 3px;text-align:center}th{background:#e0e0e0;font-weight:700}.mod{background:#FFFF00!important;font-weight:900!important;border:3px solid #000!important;font-size:12px!important}.tot{background:#e0e0e0;font-weight:700}</style></head><body>`);
+  pw.document.write(`<div style="text-align:center;margin-bottom:15px;border-bottom:3px solid #000;padding-bottom:10px"><h1 style="font-size:16px">BON DE MODIFICATION N°${bonNum}</h1><div style="font-size:11px">Semaine ${week} — Du ${dd} au ${df}</div></div>`);
+  
+  Object.keys(sections).sort().forEach(secName=>{
+    const rAvS=new Map(),rApS=new Map();
+    sections[secName].forEach(lNom=>{
+      (tAvant[lNom]||new Map()).forEach((d,k)=>{if(!rAvS.has(k))rAvS.set(k,{midi:Array(7).fill(0),soir:Array(7).fill(0)});const e=rAvS.get(k);for(let i=0;i<7;i++){e.midi[i]+=(d.midi[i]||0);e.soir[i]+=(d.soir[i]||0)}});
+      (tApres[lNom]||new Map()).forEach((d,k)=>{if(!rApS.has(k))rApS.set(k,{midi:Array(7).fill(0),soir:Array(7).fill(0)});const e=rApS.get(k);for(let i=0;i<7;i++){e.midi[i]+=(d.midi[i]||0);e.soir[i]+=(d.soir[i]||0)}});
+    });
+    if(!rAvS.size&&!rApS.size)return;
+    
+    pw.document.write(`<div style="border:2px solid #000;padding:4px 8px;font-weight:700;font-size:12px;margin:12px 0 6px">${secName.toUpperCase()}</div>`);
+    pw.document.write(`<table><thead><tr><th rowspan="3" style="width:90px">RÉGIME</th>`);
+    ['LUNDI','MARDI','MERCREDI','JEUDI','VENDREDI','SAMEDI','DIMANCHE'].forEach(d=>pw.document.write(`<th colspan="4">${d}</th>`));
+    pw.document.write(`<th rowspan="3" style="width:35px">TOTAL</th></tr><tr>`);
+    for(let i=0;i<7;i++)pw.document.write(`<th colspan="2" style="font-size:9px">MIDI</th><th colspan="2" style="font-size:9px">SOIR</th>`);
+    pw.document.write(`</tr><tr>`);
+    for(let i=0;i<7;i++)pw.document.write(`<th style="font-size:6px">INI</th><th style="font-size:6px">MOD</th><th style="font-size:6px">INI</th><th style="font-size:6px">MOD</th>`);
+    pw.document.write(`</tr></thead><tbody>`);
+    
+    [...rAvS.entries()].sort((a,b)=>a[0].localeCompare(b[0])).forEach(([k,dAv])=>{
+      const dAp=rApS.get(k)||{midi:Array(7).fill(0),soir:Array(7).fill(0)};
+      let totAp=0;
+      pw.document.write(`<tr><td style="text-align:center;font-weight:600">${k}</td>`);
+      for(let i=0;i<7;i++){
+        const mA=dAv.midi[i]||0,mB=dAp.midi[i]||0,sA=dAv.soir[i]||0,sB=dAp.soir[i]||0;
+        totAp+=mB+sB;
+        pw.document.write(`<td>${mA||''}</td><td${mA!==mB?' class="mod"':''}>${mB||''}</td><td>${sA||''}</td><td${sA!==sB?' class="mod"':''}>${sB||''}</td>`);
+      }
+      pw.document.write(`<td class="tot">${totAp}</td></tr>`);
+    });
+    pw.document.write(`</tbody></table>`);
+  });
+  
+  pw.document.write(`</body></html>`);pw.document.close();pw.print();
+  
+  if(!S.bonsModification)S.bonsModification=[];
+  S.bonsModification.push({id:'bon_'+Date.now(),date:new Date().toISOString(),week,year,dateDebut:dd,dateFin:df,bonNumber:bonNum,modificationsCount:S.printHistory[w].modifications.length,modifications:[...S.printHistory[w].modifications]});
+  save('bons');toast(`Bon N°${bonNum} généré`,'success');
+}
+
+// ============================================================
+// RENDER — RÉSIDENTS
+// ============================================================
+function filterRes(lid,btn){resFilter=lid;document.querySelectorAll('#res-filters .filter-btn').forEach(b=>b.classList.remove('active'));if(btn)btn.classList.add('active');renderResidents()}
+
+function renderResidents(){
+  const f=$('res-filters');if(!f)return;
+  f.innerHTML=`<button class="filter-btn ${resFilter==='all'?'active':''}" onclick="filterRes('all',this)">Tous</button>`;
+  S.lieux.forEach(l=>f.innerHTML+=`<button class="filter-btn ${resFilter===l.id?'active':''}" onclick="filterRes('${l.id}',this)">${l.nom}</button>`);
+  
+  const search=($('res-search')?.value||'').toLowerCase();
+  let res=S.residents.filter(r=>{if(resFilter!=='all'&&S.affectations[r.id]?.midi!==resFilter)return false;return!search||r.nom.toLowerCase().includes(search)}).sort((a,b)=>a.nom.localeCompare(b.nom));
+  $('res-count').textContent=res.length;
+  
+  let h=`<table><thead><tr><th>Nom</th><th>Lieu Midi</th><th>Lieu Soir</th><th>Régime</th><th style="text-align:right">Actions</th></tr></thead><tbody>`;
+  if(!res.length)h+=`<tr><td colspan="5" class="empty-state">Aucun résident</td></tr>`;
+  res.forEach(r=>{
+    const lm=getLieu(S.affectations[r.id]?.midi),ls=getLieu(S.affectations[r.id]?.soir),tex=getTex(r.regime),sp=r.special?getReg(r.special):null;
+    h+=`<tr><td style="font-weight:600">${r.nom}${r.adapt?` <span style="color:var(--amber);font-size:11px">⚠ ${r.adapt}</span>`:''}</td>`;
+    h+=`<td>${lm?`<span class="badge" style="background:${lm.color}15;color:${lm.color}">${lm.nom}</span>`:'—'}</td>`;
+    h+=`<td>${ls?`<span class="badge" style="background:${ls.color}15;color:${ls.color}">${ls.nom}</span>`:'—'}</td>`;
+    h+=`<td><span class="badge" style="background:${tex?.color||'#3b82f6'}15;color:${tex?.color||'#3b82f6'}">${r.regime}</span>${sp?` <span class="badge" style="background:${sp.color}15;color:${sp.color}">${r.special}</span>`:''}</td>`;
+    h+=`<td style="text-align:right">${getPerms().canEdit?`<button class="action-btn" onclick="openResidentModal('${r.id}')">✏️</button><button class="action-btn" onclick="deleteResident('${r.id}')">🗑️</button>`:"<span style='color:var(--txt3);font-size:11px'>Lecture seule</span>"}</td></tr>`;
+  });
+  h+=`</tbody></table>`;$('res-table').innerHTML=h;
+}
+
+function openResidentModal(id){
+  const opts=`<option value="">—</option>`+S.lieux.filter(l=>!l.isStaffOnly).map(l=>`<option value="${l.id}">${l.nom}</option>`).join('');
+  $('r-lm').innerHTML=opts;$('r-ls').innerHTML=opts;
+  $('r-reg').innerHTML=S.textures.map(t=>`<option value="${t.nom}">${t.nom}</option>`).join('');
+  $('r-spe').innerHTML=`<option value="">Aucun</option>`+S.regimesSpeciaux.map(r=>`<option value="${r.nom}">${r.nom}</option>`).join('');
+  if(id){
+    const r=S.residents.find(x=>x.id===id),a=S.affectations[id]||{};
+    $('mrt').textContent='Modifier résident';$('r-id').value=id;$('r-nom').value=r.nom;
+    $('r-lm').value=a.midi||'';$('r-ls').value=a.soir||'';$('r-sm').value=r.serviceMidi||1;$('r-ss').value=r.serviceSoir||1;
+    $('r-reg').value=r.regime;$('r-spe').value=r.special||'';$('r-por').value=r.portions||1;$('r-ada').value=r.adapt||'';
+  }else{
+    $('mrt').textContent='Nouveau résident';$('r-id').value='';$('r-nom').value='';$('r-lm').value='';$('r-ls').value='';
+    $('r-sm').value=1;$('r-ss').value=1;$('r-reg').value=S.textures[0]?.nom||'Normal';$('r-spe').value='';$('r-por').value=1;$('r-ada').value='';
+  }
+  openModal('modal-resident');
+}
+
+function saveResident(){
+  if(!getPerms().canEdit){toast('Accès non autorisé','error');return}
+  const nom=$('r-nom').value.trim();if(!nom){toast('Le nom est requis','error');return}
+  const data={nom,regime:$('r-reg').value,special:$('r-spe').value,portions:parseFloat($('r-por').value)||1,adapt:$('r-ada').value.trim(),serviceMidi:+$('r-sm').value||1,serviceSoir:+$('r-ss').value||1};
+  const aff={midi:$('r-lm').value,soir:$('r-ls').value};
+  const eid=$('r-id').value;
+  if(eid){const i=S.residents.findIndex(r=>r.id===eid);if(i>=0)S.residents[i]={...S.residents[i],...data};S.affectations[eid]=aff}
+  else{const nid=uid();S.residents.push({id:nid,...data});S.affectations[nid]=aff}
+  const isEdit=!!eid;auditLog(isEdit?'RESIDENT_MODIFIE':'RESIDENT_AJOUTE',{nom});save('residents');closeModal('modal-resident');renderResidents();renderDash();toast('Résident enregistré','success');
+}
+
+function deleteResident(id){showConfirm('Supprimer ce résident ?','Action irréversible',async()=>{
+  const rDel=S.residents.find(r=>r.id===id);S.residents=S.residents.filter(r=>r.id!==id);delete S.affectations[id];
+  if(db)await dbDelete('residents',id);
+  auditLog('RESIDENT_SUPPRIME',{nom:rDel?.nom||id});
+  save('residents');renderResidents();renderDash();toast('Résident supprimé','success')
+})}
+
+// ============================================================
+// RENDER — TEMPORAIRES
+// ============================================================
+function renderTemporaires(){
+  const search=($('tempo-search')?.value||'').toLowerCase();
+  let temps=(S.temporaires||[]).filter(t=>!t.archived).filter(t=>!search||t.nom.toLowerCase().includes(search)).sort((a,b)=>new Date(b.dateArrivee)-new Date(a.dateArrivee));
+  $('tempo-count').textContent=temps.length;
+  
+  let h=`<table><thead><tr><th>Nom</th><th>Arrivée</th><th>Départ</th><th>Lieu</th><th>Régime</th><th>Statut</th><th style="text-align:right">Actions</th></tr></thead><tbody>`;
+  if(!temps.length)h+=`<tr><td colspan="7" class="empty-state">Aucun séjour</td></tr>`;
+  temps.forEach(t=>{
+    const now=new Date(),d=new Date(t.dateArrivee),f=new Date(t.dateDepart);
+    const active=now>=d&&now<=f,future=d>now;
+    const lm=getLieu(t.lieuMidi);
+    h+=`<tr style="border-left:3px solid var(--teal)"><td style="font-weight:600">${t.nom} <span class="tempo-badge">AT</span></td>`;
+    h+=`<td>${fmtDate(t.dateArrivee)}</td><td>${fmtDate(t.dateDepart)}</td>`;
+    h+=`<td>${lm?.nom||'—'}</td><td>${t.regime||'—'}${t.special?' +'+t.special:''}</td>`;
+    h+=`<td>${active?'<span class="badge" style="background:var(--green-bg);color:var(--green)">Actif</span>':future?'<span class="badge" style="background:var(--blue-bg);color:var(--blue)">Futur</span>':'<span class="badge" style="background:var(--bg);color:var(--txt3)">Terminé</span>'}</td>`;
+    h+=`<td style="text-align:right"><button class="action-btn" onclick="openTempoModal('${t.id}')">✏️</button><button class="action-btn" onclick="deleteTempo('${t.id}')">🗑️</button></td></tr>`;
+  });
+  h+=`</tbody></table>`;$('tempo-table').innerHTML=h;
+}
+
+function openTempoModal(id){
+  const opts=`<option value="">—</option>`+S.lieux.filter(l=>!l.isStaffOnly).map(l=>`<option value="${l.id}">${l.nom}</option>`).join('');
+  $('t-lm').innerHTML=opts;$('t-ls').innerHTML=opts;
+  $('t-reg').innerHTML=S.textures.map(t=>`<option value="${t.nom}">${t.nom}</option>`).join('');
+  $('t-spe').innerHTML=`<option value="">Aucun</option>`+S.regimesSpeciaux.map(r=>`<option value="${r.nom}">${r.nom}</option>`).join('');
+  let hg='';
+  DAYS.forEach((d,i)=>{
+    hg+=`<div style="font-weight:600;font-size:13px">${d}</div>`;
+    hg+=`<label class="checkbox-label"><input type="checkbox" id="hab-${i}-m" checked> Midi</label>`;
+    hg+=`<label class="checkbox-label"><input type="checkbox" id="hab-${i}-s" checked> Soir</label>`;
+  });
+  $('t-hab').innerHTML=hg;
+  
+  if(id){
+    const t=S.temporaires.find(x=>x.id===id);if(!t)return;
+    $('mtt').textContent='Modifier séjour';$('t-id').value=id;$('t-nom').value=t.nom;
+    $('t-arr').value=t.dateArrivee;$('t-dep').value=t.dateDepart;$('t-lm').value=t.lieuMidi||'';$('t-ls').value=t.lieuSoir||'';
+    $('t-sm').value=t.serviceMidi||1;$('t-ss').value=t.serviceSoir||1;$('t-reg').value=t.regime;$('t-spe').value=t.special||'';
+    $('t-por').value=t.portions||1;$('t-ada').value=t.adapt||'';
+    if(t.habitudes){for(let i=0;i<7;i++){const m=$(`hab-${i}-m`),s=$(`hab-${i}-s`);if(m)m.checked=t.habitudes[i*2]!==false;if(s)s.checked=t.habitudes[i*2+1]!==false}}
+  }else{
+    $('mtt').textContent='Nouveau séjour';$('t-id').value='';$('t-nom').value='';$('t-arr').value='';$('t-dep').value='';
+    $('t-lm').value='';$('t-ls').value='';$('t-sm').value=1;$('t-ss').value=1;
+    $('t-reg').value=S.textures[0]?.nom||'Normal';$('t-spe').value='';$('t-por').value=1;$('t-ada').value='';
+  }
+  openModal('modal-tempo');
+}
+
+function saveTemporaire(){
+  if(!getPerms().canAbsences&&!getPerms().canEdit){toast('Accès non autorisé','error');return}
+  const nom=$('t-nom').value.trim(),arr=$('t-arr').value,dep=$('t-dep').value;
+  if(!nom){toast('Le nom est requis','error');return}if(!arr||!dep){toast('Les dates sont requises','error');return}
+  const hab=[];for(let i=0;i<7;i++){hab.push($(`hab-${i}-m`)?.checked!==false);hab.push($(`hab-${i}-s`)?.checked!==false)}
+  const data={nom,dateArrivee:arr,dateDepart:dep,lieuMidi:$('t-lm').value,lieuSoir:$('t-ls').value,serviceMidi:+$('t-sm').value||1,serviceSoir:+$('t-ss').value||1,regime:$('t-reg').value,special:$('t-spe').value,portions:parseFloat($('t-por').value)||1,adapt:$('t-ada').value.trim(),habitudes:hab};
+  const eid=$('t-id').value;
+  if(eid){const i=S.temporaires.findIndex(t=>t.id===eid);if(i>=0)S.temporaires[i]={...S.temporaires[i],...data}}
+  else S.temporaires.push({id:uid(),...data});
+  const isEditT=!!eid;auditLog(isEditT?'TEMPORAIRE_MODIFIE':'TEMPORAIRE_AJOUTE',{nom});save('temporaires');closeModal('modal-tempo');renderTemporaires();toast('Séjour enregistré','success');
+}
+
+function deleteTempo(id){showConfirm('Supprimer ce séjour ?','',async()=>{
+  S.temporaires=S.temporaires.filter(t=>t.id!==id);
+  if(db)await dbDelete('temporaires',id);
+  save('temporaires');renderTemporaires();toast('Séjour supprimé','success')
+})}
+
+// ============================================================
+// RENDER — ABSENCES PLANIFIÉES
+// ============================================================
+function renderAbsences(){
+  const search=($('abs-search')?.value||'').toLowerCase();
+  const abs=(S.plannedAbsences||[]).filter(a=>!search||S.residents.find(r=>r.id===a.residentId)?.nom.toLowerCase().includes(search));
+  $('abs-count').textContent=abs.length;
+  
+  let h=`<table><thead><tr><th>Résident</th><th>Motif</th><th>Du</th><th>Au</th><th>Services</th><th style="text-align:right">Actions</th></tr></thead><tbody>`;
+  if(!abs.length)h+=`<tr><td colspan="6" class="empty-state">Aucune absence planifiée</td></tr>`;
+  abs.forEach(a=>{
+    const r=S.residents.find(x=>x.id===a.residentId);
+    h+=`<tr><td style="font-weight:600">${r?.nom||'—'}</td><td>${a.motif||'—'}</td><td>${fmtDate(a.debut)}</td><td>${fmtDate(a.fin)}</td>`;
+    h+=`<td>${[a.midi?'Midi':'',a.soir?'Soir':''].filter(Boolean).join(', ')||'—'}</td>`;
+    h+=`<td style="text-align:right"><button class="action-btn" onclick="deleteAbsence('${a.id}')">🗑️</button></td></tr>`;
+  });
+  h+=`</tbody></table>`;$('abs-table').innerHTML=h;
+}
+
+function openAbsenceModal(){
+  $('a-id').value='';$('a-note').value='';$('a-deb').value='';$('a-fin').value='';$('a-midi').checked=true;$('a-soir').checked=true;
+  $('a-res').innerHTML=S.residents.map(r=>`<option value="${r.id}">${r.nom}</option>`).join('');
+  openModal('modal-absence');
+}
+
+function saveAbsence(){
+  if(!getPerms().canAbsences&&!getPerms().canEdit){toast('Accès non autorisé','error');return}
+  const rid=$('a-res').value,deb=$('a-deb').value,fin=$('a-fin').value;
+  if(!rid||!deb||!fin){toast('Champs requis manquants','error');return}
+  if(!S.plannedAbsences)S.plannedAbsences=[];
+  S.plannedAbsences.push({id:uid(),residentId:rid,motif:$('a-mot').value,note:$('a-note').value.trim(),debut:deb,fin:fin,midi:$('a-midi').checked,soir:$('a-soir').checked});
+  const absRes=S.residents.find(r=>r.id===rid);auditLog('ABSENCE_PLANIFIEE_AJOUTEE',{resident:absRes?.nom||rid,debut:deb,fin:fin});save('absences_planifiees');closeModal('modal-absence');renderAbsences();toast('Absence enregistrée','success');
+}
+
+function deleteAbsence(id){showConfirm('Supprimer cette absence ?','',async()=>{
+  S.plannedAbsences=S.plannedAbsences.filter(a=>a.id!==id);
+  if(db)await dbDelete('absences_planifiees',id);
+  save('absences_planifiees');renderAbsences();toast('Absence supprimée','success')
+})}
+
+// ============================================================
+// RENDER — RÉGIMES
+// ============================================================
+function switchRegTab(tab){regTab=tab;$('tab-tex').classList.toggle('active',tab==='textures');$('tab-reg').classList.toggle('active',tab==='regimes');renderRegimes()}
+
+function renderRegimes(){
+  const c=$('reg-content');if(!c)return;
+  const items=regTab==='textures'?S.textures:S.regimesSpeciaux;
+  let h=`<div class="table-box"><table><thead><tr><th>Nom</th><th>Abrév.</th><th>Couleur</th><th>Description</th><th style="text-align:right">Actions</th></tr></thead><tbody>`;
+  if(!items.length)h+=`<tr><td colspan="5" class="empty-state">Aucun élément</td></tr>`;
+  items.forEach(it=>{
+    h+=`<tr><td style="font-weight:600">${it.nom}</td><td><span class="tag" style="background:${it.color}15;color:${it.color}">${it.abrev||'—'}</span></td>`;
+    h+=`<td><div style="width:24px;height:24px;background:${it.color};border-radius:6px"></div></td><td style="color:var(--txt2)">${it.desc||'—'}</td>`;
+    h+=`<td style="text-align:right"><button class="action-btn" onclick="editRegime('${it.id}')">✏️</button><button class="action-btn" onclick="deleteRegime('${it.id}')">🗑️</button></td></tr>`;
+  });
+  h+=`</tbody></table></div>`;c.innerHTML=h;
+}
+
+function openRegimeModal(){$('rg-id').value='';$('rg-type').value=regTab;$('rg-nom').value='';$('rg-abr').value='';$('rg-col').value='#1a56db';$('rg-desc').value='';$('mrgt').textContent='Nouveau';openModal('modal-regime')}
+function editRegime(id){
+  const items=regTab==='textures'?S.textures:S.regimesSpeciaux;
+  const it=items.find(x=>x.id===id);if(!it)return;
+  $('rg-id').value=id;$('rg-type').value=regTab;$('rg-nom').value=it.nom;$('rg-abr').value=it.abrev||'';$('rg-col').value=it.color;$('rg-desc').value=it.desc||'';$('mrgt').textContent='Modifier';openModal('modal-regime');
+}
+function saveRegime(){
+  if(!getPerms().canEdit){toast('Accès non autorisé','error');return}
+  const nom=$('rg-nom').value.trim();if(!nom){toast('Nom requis','error');return}
+  const data={nom,abrev:$('rg-abr').value.trim(),color:$('rg-col').value,desc:$('rg-desc').value.trim()};
+  const type=$('rg-type').value,eid=$('rg-id').value;
+  const arr=type==='textures'?S.textures:S.regimesSpeciaux;
+  if(eid){const i=arr.findIndex(x=>x.id===eid);if(i>=0)arr[i]={...arr[i],...data}}
+  else arr.push({id:uid(),...data});
+  save(type==='textures'?'textures':'regimes');closeModal('modal-regime');renderRegimes();toast('Enregistré','success');
+}
+function deleteRegime(id){showConfirm('Supprimer ?','',async()=>{
+  const arr=regTab==='textures'?'textures':'regimesSpeciaux';
+  const table=regTab==='textures'?'textures':'regimes_speciaux';
+  S[arr]=S[arr].filter(x=>x.id!==id);
+  if(db)await dbDelete(table,id);
+  save(regTab==='textures'?'textures':'regimes');renderRegimes();toast('Supprimé','success')
+})}
+
+// ============================================================
+// RENDER — LIEUX
+// ============================================================
+function renderLieux(){
+  const c=$('lieux-content');if(!c)return;
+  const sites={};S.lieux.forEach(l=>{const s=l.section||'Autre';if(!sites[s])sites[s]=[];sites[s].push(l)});
+  let h='';
+  Object.keys(sites).sort().forEach(s=>{
+    h+=`<div class="section-divider">${s}</div><div class="lieux-grid">`;
+    sites[s].forEach(l=>{
+      const count=S.residents.filter(r=>S.affectations[r.id]?.midi===l.id||S.affectations[r.id]?.soir===l.id).length;
+      h+=`<div class="lieu-card" style="border-top:3px solid ${l.color}"><div class="lieu-card-head"><div style="width:12px;height:12px;background:${l.color};border-radius:4px"></div><strong style="flex:1">${l.nom}</strong><div class="btn-group"><button class="action-btn" onclick="editLieu('${l.id}')">✏️</button><button class="action-btn" onclick="deleteLieu('${l.id}')">🗑️</button></div></div>`;
+      h+=`<div class="lieu-card-body"><div class="lieu-stat"><span style="color:var(--txt2)">Résidents</span><strong>${count}</strong></div>`;
+      h+=`<div class="lieu-stat"><span style="color:var(--txt2)">Services</span><span>${[l.midi?'Midi':'',l.soir?'Soir':''].filter(Boolean).join(', ')}</span></div>`;
+      h+=`${l.isStaffOnly?'<div style="margin-top:8px"><span class="badge" style="background:var(--amber-bg);color:var(--amber)">Personnel uniquement</span></div>':''}`;
+      h+=`</div></div>`;
+    });
+    h+=`</div>`;
+  });
+  c.innerHTML=h||'<div class="empty-state">Aucun lieu</div>';
+}
+
+function openLieuModal(){$('l-id').value='';$('l-nom').value='';$('l-sec').value='';$('l-col').value='#1a56db';$('l-midi').checked=true;$('l-soir').checked=true;$('l-staff').checked=false;$('mlt').textContent='Nouveau lieu';
+  const sites=[...new Set(S.lieux.map(l=>l.section).filter(Boolean))];$('dl-sites').innerHTML=sites.map(s=>`<option value="${s}">`).join('');openModal('modal-lieu')}
+function editLieu(id){const l=S.lieux.find(x=>x.id===id);if(!l)return;$('l-id').value=id;$('l-nom').value=l.nom;$('l-sec').value=l.section||'';$('l-col').value=l.color;$('l-midi').checked=l.midi;$('l-soir').checked=l.soir;$('l-staff').checked=l.isStaffOnly;$('mlt').textContent='Modifier lieu';openModal('modal-lieu')}
+function saveLieu(){
+  if(!getPerms().canEdit){toast('Accès non autorisé','error');return}
+  const nom=$('l-nom').value.trim(),sec=$('l-sec').value.trim();if(!nom||!sec){toast('Nom et site requis','error');return}
+  const data={nom,section:sec,color:$('l-col').value,midi:$('l-midi').checked,soir:$('l-soir').checked,isStaffOnly:$('l-staff').checked};
+  const eid=$('l-id').value;
+  if(eid){const i=S.lieux.findIndex(l=>l.id===eid);if(i>=0)S.lieux[i]={...S.lieux[i],...data}}
+  else S.lieux.push({id:uid(),...data});
+  save('lieux');closeModal('modal-lieu');renderLieux();toast('Lieu enregistré','success');
+}
+function deleteLieu(id){showConfirm('Supprimer ce lieu ?','Les résidents affectés seront désaffectés',async()=>{
+  S.lieux=S.lieux.filter(l=>l.id!==id);
+  Object.keys(S.affectations).forEach(rid=>{if(S.affectations[rid].midi===id)S.affectations[rid].midi='';if(S.affectations[rid].soir===id)S.affectations[rid].soir=''});
+  if(db)await dbDelete('lieux',id);
+  save('lieux');renderLieux();toast('Lieu supprimé','success')
+})}
+
+// ============================================================
+// RENDER — GROUPES
+// ============================================================
+function renderGroupes(){
+  const c=$('grp-content');if(!c)return;
+  if(!S.groupes?.length){c.innerHTML=`<div class="empty-state"><div style="font-size:48px;margin-bottom:12px">👨‍🍳</div><p>Aucun groupe</p></div>`;return}
+  let h='';
+  S.groupes.forEach(g=>{
+    const tM=(g.vals||[]).reduce((a,b)=>a+b,0),tS=(g.valsSoir||[]).reduce((a,b)=>a+b,0);
+    const tPM=(g.valsPn||[]).reduce((a,b)=>a+b,0),tPS=(g.valsSoirPn||[]).reduce((a,b)=>a+b,0);
+    h+=`<div class="groupe-card"><div class="groupe-head">`;
+    h+=`<input type="text" value="${g.nom}" onchange="updGrpNom('${g.id}',this.value)" style="flex:1;background:transparent;border:1px solid var(--border);border-radius:8px;padding:6px 12px;color:var(--txt);font-size:15px;font-weight:700;outline:none;font-family:inherit">`;
+    h+=`<select onchange="updGrpLieu('${g.id}',this.value)" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:6px 10px;color:var(--txt2);font-size:12px;outline:none;font-family:inherit"><option value="">— Lieu —</option>${S.lieux.map(l=>`<option value="${l.id}" ${l.id===g.lieuId?'selected':''}>${l.nom}</option>`).join('')}</select>`;
+    h+=`<span style="color:var(--txt3);font-size:11px">${tM+tS} repas</span>`;
+    h+=`<button class="action-btn" onclick="deleteGroupe('${g.id}')">🗑️</button></div>`;
+    h+=`<div style="overflow-x:auto"><table style="min-width:850px"><thead><tr><th style="min-width:100px">Type</th>`;
+    DAYS_S.forEach((d,i)=>h+=`<th colspan="2" style="text-align:center;color:${DAY_C[i]}">${d}<div style="display:flex;justify-content:space-around;font-size:8px;margin-top:2px"><span>M</span><span>S</span></div></th>`);
+    h+=`<th style="text-align:center">Total</th></tr></thead><tbody>`;
+    h+=grpRow(g,'vals','valsSoir','🍽 Repas',tM+tS,false);
+    h+=grpRow(g,'valsPn','valsSoirPn','🧺 Pic Nic',tPM+tPS,true);
+    h+=`</tbody></table></div></div>`;
+  });
+  c.innerHTML=h;
+}
+
+function grpRow(g,fm,fs,label,total,isPn){
+  const vm=g[fm]||Array(7).fill(0),vs=g[fs]||Array(7).fill(0);
+  let cells='';
+  for(let i=0;i<7;i++){
+    cells+=`<td colspan="2" style="padding:0"><div style="display:flex"><div style="width:50%;padding:2px;border-right:1px solid var(--border)"><div class="nombre-cell"><button class="nombre-btn" onclick="updGrpVal('${g.id}','${fm}',${i},-1)">−</button><input class="nombre-input" value="${vm[i]}" onchange="setGrpVal('${g.id}','${fm}',${i},+this.value)"><button class="nombre-btn" onclick="updGrpVal('${g.id}','${fm}',${i},1)">+</button></div></div><div style="width:50%;padding:2px"><div class="nombre-cell"><button class="nombre-btn" onclick="updGrpVal('${g.id}','${fs}',${i},-1)">−</button><input class="nombre-input" value="${vs[i]}" onchange="setGrpVal('${g.id}','${fs}',${i},+this.value)"><button class="nombre-btn" onclick="updGrpVal('${g.id}','${fs}',${i},1)">+</button></div></div></div></td>`;
+  }
+  return`<tr ${isPn?'style="background:var(--amber-bg)"':''}><td style="font-weight:600;color:${isPn?'var(--amber)':'var(--txt2)'}">${label}</td>${cells}<td style="text-align:center;font-weight:700;color:${isPn?'var(--amber)':'var(--blue)'}">${total}</td></tr>`;
+}
+
+function addGroupe(){S.groupes.push({id:uid(),nom:'Nouveau groupe',lieuId:'',vals:Array(7).fill(0),valsSoir:Array(7).fill(0),valsPn:Array(7).fill(0),valsSoirPn:Array(7).fill(0)});save('groupes');renderGroupes();toast('Groupe ajouté','success')}
+function updGrpNom(id,v){const g=S.groupes.find(x=>x.id===id);if(g){g.nom=v;save('groupes')}}
+function updGrpLieu(id,v){const g=S.groupes.find(x=>x.id===id);if(g){g.lieuId=v;save('groupes')}}
+function updGrpVal(id,field,idx,delta){const g=S.groupes.find(x=>x.id===id);if(g){if(!g[field])g[field]=Array(7).fill(0);g[field][idx]=Math.max(0,g[field][idx]+delta);save('groupes');renderGroupes()}}
+function setGrpVal(id,field,idx,val){const g=S.groupes.find(x=>x.id===id);if(g){if(!g[field])g[field]=Array(7).fill(0);g[field][idx]=Math.max(0,val||0);save('groupes');renderGroupes()}}
+function deleteGroupe(id){showConfirm('Supprimer ce groupe ?','',async()=>{
+  S.groupes=S.groupes.filter(g=>g.id!==id);
+  if(db)await dbDelete('groupes',id);
+  save('groupes');renderGroupes();toast('Groupe supprimé','success')
+})}
+
+// ============================================================
+// RENDER — MEP (Mise en Plats)
+// ============================================================
+function renderMEP(){
+  const sub=$('mep-sub');if(sub)sub.textContent=`S${S.currentWeek} — ${S.currentYear}`;
+  const c=$('mep-content');if(!c)return;
+  const sites={};S.lieux.forEach(l=>{if(!l.section)return;if(!sites[l.section])sites[l.section]=[];sites[l.section].push(l)});
+  let html='';
+  Object.keys(sites).sort().forEach(s=>{html+=`<div class="section-divider">${s}</div>`;sites[s].forEach(l=>html+=renderMEPLieu(l))});
+  c.innerHTML=html||'<div class="empty-state">Aucun lieu configuré</div>';
+}
+
+function renderMEPLieu(lieu){
+  const w=wk();
+  const svc1={regimes:new Map(),adaptations:[]},svc2={regimes:new Map(),adaptations:[],pn:new Map()};
+  
+  const addP=(p,di,meal,sn)=>{const tgt=sn===1?svc1:svc2;if(p.adapt){let a=tgt.adaptations.find(x=>x.nom===p.nom);if(!a){a={nom:p.nom,adapt:p.adapt,regime:p.regime,midi:Array(7).fill(0),soir:Array(7).fill(0)};tgt.adaptations.push(a)}a[meal][di]++}else{const k=`${p.regime}|${p.special||''}`;if(!tgt.regimes.has(k))tgt.regimes.set(k,{regime:p.regime,special:p.special||'',midi:Array(7).fill(0),soir:Array(7).fill(0)});tgt.regimes.get(k)[meal][di]++}};
+  const addPN=(p,di,meal)=>{const k=`${p.regime}|${p.special||''}`;if(!svc2.pn.has(k))svc2.pn.set(k,{regime:p.regime,special:p.special||'',midi:Array(7).fill(0),soir:Array(7).fill(0)});svc2.pn.get(k)[meal][di]++};
+  
+  for(let di=0;di<7;di++){
+    S.residents.filter(r=>S.affectations[r.id]?.midi===lieu.id).forEach(p=>{const abs=S.absences[w]?.[p.id]||[];if(!abs[di*2]){const pk=`${p.id}_${di}_midi`;if(S.piquenique[w]?.[pk])addPN(p,di,'midi');else addP(p,di,'midi',p.serviceMidi||1)}});
+    S.residents.filter(r=>S.affectations[r.id]?.soir===lieu.id).forEach(p=>{const abs=S.absences[w]?.[p.id]||[];if(!abs[di*2+1]){const pk=`${p.id}_${di}_soir`;if(S.piquenique[w]?.[pk])addPN(p,di,'soir');else addP(p,di,'soir',p.serviceSoir||1)}});
+    (S.temporaires||[]).filter(t=>isTempoActive(t,S.currentWeek,S.currentYear)).forEach(t=>{
+      if(t.lieuMidi===lieu.id&&(!t.habitudes||t.habitudes[di*2]!==false)){const pk=`${t.id}_${di}_midi`;if(S.piquenique[w]?.[pk])addPN(t,di,'midi');else addP(t,di,'midi',t.serviceMidi||1)}
+      if(t.lieuSoir===lieu.id&&(!t.habitudes||t.habitudes[di*2+1]!==false)){const pk=`${t.id}_${di}_soir`;if(S.piquenique[w]?.[pk])addPN(t,di,'soir');else addP(t,di,'soir',t.serviceSoir||1)}
+    });
+  }
+  S.groupes.filter(g=>g.lieuId===lieu.id).forEach(g=>{const k='Normal|';if(!svc2.regimes.has(k))svc2.regimes.set(k,{regime:'Normal',special:'',midi:Array(7).fill(0),soir:Array(7).fill(0)});const nr=svc2.regimes.get(k);for(let i=0;i<7;i++){nr.midi[i]+=(g.vals?.[i]||0);nr.soir[i]+=(g.valsSoir?.[i]||0)}});
+  
+  const renderST=(sd,name)=>{
+    let h=`<table style="min-width:900px"><thead><tr><th style="min-width:140px">RÉGIME</th>`;
+    DAYS_S.forEach((d,i)=>h+=`<th colspan="2" style="text-align:center;color:${DAY_C[i]}">${d}<div style="display:flex;justify-content:space-around;font-size:8px;margin-top:2px"><span>M</span><span>S</span></div></th>`);
+    h+=`<th style="text-align:center">TOTAL</th></tr></thead><tbody>`;
+    const entries=[...sd.regimes.entries()].sort((a,b)=>a[0].localeCompare(b[0]));
+    const tM=Array(7).fill(0),tS=Array(7).fill(0);
+    entries.forEach(([k,d])=>{
+      const tex=getTex(d.regime),tot=d.midi.reduce((a,b)=>a+b,0)+d.soir.reduce((a,b)=>a+b,0);
+      h+=`<tr><td><span class="badge" style="background:${tex?.color||'#3b82f6'}15;color:${tex?.color||'#3b82f6'}">${d.regime}</span>${d.special?` <span class="badge" style="background:var(--amber-bg);color:var(--amber)">${d.special}</span>`:''}</td>`;
+      for(let i=0;i<7;i++){h+=`<td style="text-align:center;font-weight:600">${d.midi[i]||'—'}</td><td style="text-align:center;font-weight:600">${d.soir[i]||'—'}</td>`;tM[i]+=d.midi[i];tS[i]+=d.soir[i]}
+      h+=`<td style="text-align:center;font-weight:700;color:var(--blue)">${tot}</td></tr>`;
+    });
+    sd.adaptations.forEach(a=>{const tot=a.midi.reduce((x,y)=>x+y,0)+a.soir.reduce((x,y)=>x+y,0);h+=`<tr style="border-left:3px solid var(--amber)"><td><strong>${a.nom}</strong><div style="font-size:10px;color:var(--amber)">⚠ ${a.adapt}</div></td>`;for(let i=0;i<7;i++){h+=`<td style="text-align:center;font-weight:600;color:var(--amber)">${a.midi[i]||'—'}</td><td style="text-align:center;font-weight:600;color:var(--amber)">${a.soir[i]||'—'}</td>`;tM[i]+=a.midi[i];tS[i]+=a.soir[i]}h+=`<td style="text-align:center;font-weight:700;color:var(--amber)">${tot}</td></tr>`});
+    if(sd.pn){[...sd.pn.entries()].forEach(([k,d])=>{const tot=d.midi.reduce((a,b)=>a+b,0)+d.soir.reduce((a,b)=>a+b,0);if(!tot)return;h+=`<tr style="background:var(--amber-bg)"><td><span class="badge" style="background:var(--amber-bg);color:var(--amber)">PN ${d.regime}</span></td>`;for(let i=0;i<7;i++){h+=`<td style="text-align:center;font-weight:600;color:var(--amber)">${d.midi[i]||'—'}</td><td style="text-align:center;font-weight:600;color:var(--amber)">${d.soir[i]||'—'}</td>`;tM[i]+=d.midi[i];tS[i]+=d.soir[i]}h+=`<td style="text-align:center;font-weight:700;color:var(--amber)">${tot}</td></tr>`})}
+    const gt=tM.reduce((a,b)=>a+b,0)+tS.reduce((a,b)=>a+b,0);
+    h+=`<tr style="background:var(--bg);font-weight:700;border-top:2px solid var(--border)"><td>TOTAL ${name}</td>`;
+    for(let i=0;i<7;i++)h+=`<td style="text-align:center;color:${DAY_C[i]}">${tM[i]}</td><td style="text-align:center;color:${DAY_C[i]}">${tS[i]}</td>`;
+    h+=`<td style="text-align:center;font-size:15px;color:var(--green)">${gt}</td></tr></tbody></table>`;return h;
+  };
+  
+  return`<div class="table-box" style="margin-bottom:20px"><div class="table-top" style="border-bottom:2px solid ${lieu.color}"><h2 style="color:${lieu.color}">${lieu.nom}</h2></div><h3 style="padding:14px 20px 8px;font-size:14px">🕐 1er Service</h3>${renderST(svc1,'1er')}<h3 style="padding:14px 20px 8px;font-size:14px">🕑 2ème Service</h3>${renderST(svc2,'2ème')}</div>`;
+}
+
+function printMEP(){const pw=window.open('','_blank');pw.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>MEP S${S.currentWeek}</title><style>@page{margin:10mm;size:A4 landscape}body{font-family:Arial,sans-serif;font-size:10px}h1{text-align:center;font-size:18px;margin-bottom:20px}table{width:100%;border-collapse:collapse;margin-bottom:15px}th,td{border:1px solid #000;padding:3px;text-align:center}th{background:#e0e0e0}</style></head><body><h1>MISE EN PLATS — Semaine ${S.currentWeek}</h1>${$('mep-content').innerHTML}</body></html>`);pw.document.close();pw.print()}
+
+// ============================================================
+// RENDER — HISTORIQUE BONS
+// ============================================================
+function renderHist(){
+  const c=$('hist-content');if(!c)return;
+  const bons=(S.bonsModification||[]).filter(b=>b.week===S.currentWeek&&b.year===S.currentYear).sort((a,b)=>new Date(b.date)-new Date(a.date));
+  if(!bons.length){c.innerHTML='<div class="empty-state">Aucun bon de modification pour cette semaine</div>';return}
+  let h='<div class="table-box"><table><thead><tr><th>N°</th><th>Date</th><th>Période</th><th>Modifications</th><th style="text-align:right">Actions</th></tr></thead><tbody>';
+  bons.forEach(b=>{
+    const d=new Date(b.date);
+    h+=`<tr><td style="font-weight:700">N°${b.bonNumber}</td><td>${d.toLocaleDateString('fr-FR')} ${d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</td><td>S${b.week} (${b.dateDebut} → ${b.dateFin})</td><td><span class="badge" style="background:var(--amber-bg);color:var(--amber)">${b.modificationsCount} modif${b.modificationsCount>1?'s':''}</span></td>`;
+    h+=`<td style="text-align:right"><button class="action-btn" onclick="deleteBon('${b.id}')" title="Supprimer">🗑️</button></td></tr>`;
+  });
+  h+=`</tbody></table></div>`;c.innerHTML=h;
+}
+
+function deleteBon(id){bonDelId=id;$('pw-del-bon').value='';$('pw-del-err').style.display='none';openModal('modal-del-bon');setTimeout(()=>$('pw-del-bon').focus(),100)}
+function confirmDelBon(){
+  if(!getPerms().canAdmin){toast('Accès non autorisé','error');closeModal('modal-del-bon');return}
+  S.bonsModification=S.bonsModification.filter(b=>b.id!==bonDelId);
+  if(db)dbDelete('bons_modification',bonDelId);
+  save('bons');closeModal('modal-del-bon');renderHist();toast('Bon supprimé','success');bonDelId=null
+}
+
+// ============================================================
+// RENDER — FICHE (Planning Annuel)
+// ============================================================
+function renderFiche(){
+  const sel=$('fiche-sel'),yearSel=$('fiche-year');
+  if(sel){
+    const cv=sel.value;let opts='<option value="">— Choisir —</option><optgroup label="Résidents">';
+    S.residents.forEach(r=>opts+=`<option value="r-${r.id}" ${`r-${r.id}`===cv?'selected':''}>${r.nom}</option>`);
+    opts+='</optgroup>';
+    const at=(S.temporaires||[]).filter(t=>!t.archived);
+    if(at.length){opts+='<optgroup label="Accueil Temporaire">';at.forEach(t=>opts+=`<option value="t-${t.id}" ${`t-${t.id}`===cv?'selected':''}>${t.nom}</option>`);opts+='</optgroup>'}
+    sel.innerHTML=opts;
+  }
+  if(yearSel&&!yearSel.options.length){for(let y=2025;y<=2030;y++){const o=document.createElement('option');o.value=y;o.textContent=y;if(y===S.currentYear)o.selected=true;yearSel.appendChild(o)}}
+  
+  const sv=sel?.value,year=+(yearSel?.value||S.currentYear);
+  const c=$('fiche-content');if(!c)return;
+  if(!sv){c.innerHTML='<div class="empty-state">Sélectionnez un résident</div>';return}
+  const [type,id]=sv.split('-');
+  let person=type==='r'?S.residents.find(x=>x.id===id):S.temporaires.find(x=>x.id===id);
+  if(!person){c.innerHTML='<div class="empty-state">Non trouvé</div>';return}
+  if(type==='t')person.isTempo=true;
+  
+  const absP=(S.plannedAbsences||[]).filter(a=>a.residentId===id);
+  let h=`<div style="margin-bottom:20px;padding:16px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg)"><h2 style="font-size:18px;font-weight:700">${person.nom} ${person.isTempo?'<span class="tempo-badge">AT</span>':''}</h2><div style="display:flex;gap:8px;margin-top:8px"><span class="badge" style="background:var(--blue-bg);color:var(--blue)">${person.regime}</span>${person.special?`<span class="badge" style="background:var(--amber-bg);color:var(--amber)">${person.special}</span>`:''}</div></div><div class="cal-grid-wrap">`;
+  
+  for(let m=0;m<12;m++){
+    h+=`<div class="month-card"><div class="month-title">${MONTHS[m]} ${year}</div><div class="cal-g">${DAYS_S.map(d=>`<div class="cal-dh">${d}</div>`).join('')}`;
+    const fd=new Date(year,m,1),ld=new Date(year,m+1,0),sd=fd.getDay()===0?6:fd.getDay()-1;
+    for(let i=0;i<sd;i++)h+=`<div class="cal-d"></div>`;
+    for(let d=1;d<=ld.getDate();d++){
+      const cd=new Date(year,m,d);let style='background:var(--bg);color:var(--txt)',isAbs=false;
+      absP.forEach(a=>{const s=new Date(a.debut),e=new Date(a.fin);s.setHours(0,0,0,0);e.setHours(23,59,59,999);if(cd>=s&&cd<=e){isAbs=true}});
+      if(isAbs)style='background:var(--red);color:#fff;font-weight:700';
+      else if(person.isTempo){const sd2=new Date(person.dateArrivee),ed2=new Date(person.dateDepart);sd2.setHours(0,0,0,0);ed2.setHours(23,59,59,999);if(cd>=sd2&&cd<=ed2)style='background:var(--teal);color:#fff';else style='background:var(--bg);color:var(--txt3);opacity:.3'}
+      h+=`<div class="cal-d" style="${style}">${d}</div>`;
+    }
+    h+=`</div></div>`;
+  }
+  h+=`</div>`;c.innerHTML=h;
+}
+
+// ============================================================
+// EXPORT / IMPORT JSON
+// ============================================================
+function exportJSON(){
+  try{const b=new Blob([JSON.stringify(S,null,2)],{type:'application/json'}),u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=`msp-repas-${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(u);toast('Export JSON créé','success')}
+  catch(e){toast('Erreur export','error')}
+}
+function importJSON(input){
+  const f=input.files[0];if(!f)return;
+  const r=new FileReader();r.onload=e=>{try{const d=JSON.parse(e.target.result);if(!d.residents)throw new Error('Format invalide');if(confirm('⚠️ Remplacer toutes les données ?')){S=d;if(!S.temporaires)S.temporaires=[];if(!S.plannedAbsences)S.plannedAbsences=[];if(!S.printHistory)S.printHistory={};if(!S.bonsModification)S.bonsModification=[];save();toast('Import réussi','success');setTimeout(()=>location.reload(),1000)}}catch(e){toast('Fichier invalide','error')}};
+  r.readAsText(f);input.value='';
+}
+
+// ============================================================
+// EXCEL EXPORT / IMPORT (Super Admin)
+// ============================================================
+function exportExcel(){
+  if(!getPerms().canAdmin){toast('Accès non autorisé','error');return}
+  const w=wk(),week=S.currentWeek,year=S.currentYear,wb=XLSX.utils.book_new();
+  const data=[['ID','Nom','Type','Régime','Spécial','Lieu Midi','Lieu Soir','Lun M','Lun S','Mar M','Mar S','Mer M','Mer S','Jeu M','Jeu S','Ven M','Ven S','Sam M','Sam S','Dim M','Dim S']];
+  S.residents.forEach(r=>{
+    const lm=getLieu(S.affectations[r.id]?.midi),ls=getLieu(S.affectations[r.id]?.soir),abs=S.absences[w]?.[r.id]||Array(14).fill(false),pn=S.piquenique[w]||{};
+    const row=[r.id,r.nom,'Résident',r.regime||'',r.special||'',lm?.nom||'',ls?.nom||''];
+    for(let d=0;d<7;d++){const ms=d*2,ss=d*2+1;row.push(abs[ms]?'ABS':pn[`${r.id}_${d}_midi`]?'PN':'OK');row.push(abs[ss]?'ABS':pn[`${r.id}_${d}_soir`]?'PN':'OK')}
+    data.push(row);
+  });
+  (S.temporaires||[]).filter(t=>isTempoActive(t,week,year)).forEach(t=>{
+    const lm=getLieu(t.lieuMidi),ls=getLieu(t.lieuSoir),pn=S.piquenique[w]||{};
+    const row=[t.id,t.nom+' (AT)','Temporaire',t.regime||'',t.special||'',lm?.nom||'',ls?.nom||''];
+    for(let d=0;d<7;d++){const ms=d*2,ss=d*2+1;const hm=!t.habitudes||t.habitudes[ms]!==false,hs=!t.habitudes||t.habitudes[ss]!==false;row.push(hm?(pn[`${t.id}_${d}_midi`]?'PN':'OK'):'');row.push(hs?(pn[`${t.id}_${d}_soir`]?'PN':'OK'):'')}
+    data.push(row);
+  });
+  const ws=XLSX.utils.aoa_to_sheet(data);ws['!cols']=[{wch:10},{wch:30},{wch:12},{wch:12},{wch:12},{wch:18},{wch:18},...Array(14).fill({wch:7})];
+  XLSX.utils.book_append_sheet(wb,ws,`S${week}`);XLSX.writeFile(wb,`MSP_Repas_S${week}_${year}.xlsx`);toast('Export Excel réussi','success');
+}
+
+function importExcel(event){
+  if(!getPerms().canAdmin){toast('Accès non autorisé','error');return}
+  const f=event.target.files[0];if(!f)return;
+  const r=new FileReader();r.onload=e=>{
+    try{const d=new Uint8Array(e.target.result),wb=XLSX.read(d,{type:'array'}),ws=wb.Sheets[wb.SheetNames[0]],json=XLSX.utils.sheet_to_json(ws,{header:1});
+    if(json.length<2){toast('Fichier vide','error');return}
+    const w=wk();S.absences[w]={};S.piquenique[w]={};
+    for(let i=1;i<json.length;i++){const row=json[i],pid=row[0];if(!pid)continue;if(!S.absences[w][pid])S.absences[w][pid]=Array(14).fill(false);
+      for(let d=0;d<7;d++){const mc=7+d*2,sc=8+d*2,ms=d*2,ss=d*2+1;
+        S.absences[w][pid][ms]=row[mc]==='ABS';S.piquenique[w][`${pid}_${d}_midi`]=row[mc]==='PN';
+        S.absences[w][pid][ss]=row[sc]==='ABS';S.piquenique[w][`${pid}_${d}_soir`]=row[sc]==='PN';
+      }}
+    save('absences');renderCommande();renderTotaux();toast(`Import réussi — ${json.length-1} lignes`,'success');
+    }catch(e){toast('Erreur import: '+e.message,'error')}
+  };r.readAsArrayBuffer(f);event.target.value='';
+}
+
+// ============================================================
+// BACKUP / RESTORE (Super Admin)
+// ============================================================
+function exportBackup(){
+  if(!getPerms().canAdmin){toast('Accès non autorisé','error');return}
+  try{const backup={version:'2.0',app:'MSP Repas',exportDate:new Date().toISOString(),exportDateReadable:new Date().toLocaleString('fr-FR'),data:S};
+  const b=new Blob([JSON.stringify(backup,null,2)],{type:'application/json'}),u=URL.createObjectURL(b),a=document.createElement('a');
+  a.href=u;a.download=`MSP_Backup_Complet_${new Date().toISOString().split('T')[0]}.json`;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(u);
+  toast('Backup complet téléchargé','success')}catch(e){toast('Erreur backup: '+e.message,'error')}
+}
+
+function importBackup(event){
+  if(!getPerms().canAdmin){toast('Accès non autorisé','error');return}
+  const f=event.target.files[0];if(!f)return;
+  if(!confirm('⚠️ ATTENTION !\n\nRestaurer ce backup va REMPLACER TOUTES vos données.\n\nContinuer ?')){event.target.value='';return}
+  const r=new FileReader();r.onload=e=>{
+    try{const backup=JSON.parse(e.target.result);if(!backup.data)throw new Error('Structure invalide');
+    S=backup.data;if(!S.temporaires)S.temporaires=[];if(!S.printHistory)S.printHistory={};if(!S.bonsModification)S.bonsModification=[];if(!S.plannedAbsences)S.plannedAbsences=[];
+    save();toast('Backup restauré ! Rechargement…','success');setTimeout(()=>location.reload(),2000);
+    }catch(e){toast('Erreur restauration: '+e.message,'error')}};r.readAsText(f);event.target.value='';
+}
+
+
+
+// ============================================================
+// AUTH & PERMISSIONS
+// ============================================================
+let currentUser = null; // {id, email, nom, role, must_change_password}
+const ROLES = {
+  educateur:   {label:'Éducateur',    icon:'👨‍🏫', level:1},
+  comptable:   {label:'Comptable',    icon:'📊',   level:2},
+  responsable: {label:'Responsable',  icon:'👔',   level:3},
+  superadmin:  {label:'Super Admin',  icon:'👑',   level:4}
+};
+
+// Ce que chaque rôle peut faire
+const PERMS = {
+  educateur:   {canEdit:false, canAbsences:true,  canReporting:false, canAdmin:false, canCommande:false},
+  comptable:   {canEdit:false, canAbsences:false, canReporting:true,  canAdmin:false, canCommande:false},
+  responsable: {canEdit:true,  canAbsences:true,  canReporting:true,  canAdmin:false, canCommande:true},
+  superadmin:  {canEdit:true,  canAbsences:true,  canReporting:true,  canAdmin:true,  canCommande:true}
+};
+
+function getPerms(){return currentUser?PERMS[currentUser.role]||PERMS.educateur:PERMS.educateur}
+
+// Hash simple (non cryptographique, suffisant pour usage interne)
+async function hashPassword(pw){
+  const enc=new TextEncoder();
+  const data=enc.encode(pw+'msp_salt_2026');
+  const hash=await crypto.subtle.digest('SHA-256',data);
+  return Array.from(new Uint8Array(hash)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+function generatePassword(len=10){
+  const chars='abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789!@#';
+  return Array.from({length:len},()=>chars[Math.floor(Math.random()*chars.length)]).join('');
+}
+
+// ============================================================
+// LOGIN SCREEN
+// ============================================================
+function showLoginScreen(){
+  const ls=$('login-screen');if(ls)ls.style.display='flex';
+  setTimeout(()=>{const e=$('login-email');if(e)e.focus()},300);
+}
+function hideLoginScreen(){const ls=$('login-screen');if(ls)ls.style.display='none'}
+function showChangePwScreen(){const s=$('change-pw-screen');if(s)s.style.display='flex'}
+function hideChangePwScreen(){const s=$('change-pw-screen');if(s)s.style.display='none'}
+
+function switchLoginTab(tab){
+  $('tab-login').style.display=tab==='login'?'block':'none';
+  $('tab-request').style.display=tab==='request'?'block':'none';
+  const lb=$('tab-login-btn'),rb=$('tab-request-btn');
+  if(lb){lb.style.background=tab==='login'?'#fff':'transparent';lb.style.color=tab==='login'?'#1a56db':'#6b7280';lb.style.boxShadow=tab==='login'?'0 1px 3px rgba(0,0,0,.1)':'none'}
+  if(rb){rb.style.background=tab==='request'?'#fff':'transparent';rb.style.color=tab==='request'?'#1a56db':'#6b7280';rb.style.boxShadow=tab==='request'?'0 1px 3px rgba(0,0,0,.1)':'none'}
+}
+
+function togglePwVis(id){const el=$(id);if(el)el.type=el.type==='password'?'text':'password'}
+
+async function doLogin(){
+  const email=($('login-email')?.value||'').trim().toLowerCase();
+  const pw=$('login-password')?.value||'';
+  const errEl=$('login-error'),btn=$('login-btn');
+  if(!email||!pw){showLoginError('Veuillez remplir tous les champs');return}
+  btn.textContent='⏳ Connexion…';btn.disabled=true;
+  try{
+    const hash=await hashPassword(pw);
+    const {data,error}=await db.from('msp_users').select('*').eq('email',email).eq('actif',true).single();
+    if(error||!data){showLoginError('Email ou mot de passe incorrect');btn.textContent='Se connecter';btn.disabled=false;return}
+    // Vérifier mot de passe (hash ou temp)
+    const hashMatch=data.password_hash===hash;
+    const tempMatch=data.temp_password&&data.temp_password===pw;
+    if(!hashMatch&&!tempMatch){showLoginError('Email ou mot de passe incorrect');btn.textContent='Se connecter';btn.disabled=false;return}
+    // Connexion OK
+    currentUser={id:data.id,email:data.email,nom:data.nom,role:data.role,must_change_password:data.must_change_password||tempMatch};
+    // Mettre à jour last_login
+    await db.from('msp_users').update({last_login:new Date().toISOString()}).eq('id',data.id);
+    await auditLog('CONNEXION',{email:data.email});
+    hideLoginScreen();
+    // Charger les données APRÈS connexion
+    btn.textContent='⏳ Chargement…';
+    const ls=$('login-screen');if(ls)ls.style.display='none';
+    $('loading-screen').classList.remove('hidden');
+    setLoading('Chargement des données…');
+    await loadFromSupabase();
+    $('loading-screen').classList.add('hidden');
+    if(currentUser.must_change_password||tempMatch){showChangePwScreen()}
+    else{onLoginSuccess()}
+  }catch(e){showLoginError('Erreur de connexion');btn.textContent='Se connecter';btn.disabled=false}
+}
+
+function showLoginError(msg){const el=$('login-error');if(el){el.textContent=msg;el.style.display='block'}}
+
+async function doChangePw(){
+  const pw1=$('new-pw1')?.value||'',pw2=$('new-pw2')?.value||'';
+  const errEl=$('changepw-error');
+  if(pw1.length<6){errEl.textContent='Le mot de passe doit faire au moins 6 caractères';errEl.style.display='block';return}
+  if(pw1!==pw2){errEl.textContent='Les mots de passe ne correspondent pas';errEl.style.display='block';return}
+  try{
+    const hash=await hashPassword(pw1);
+    await db.from('msp_users').update({password_hash:hash,temp_password:null,must_change_password:false}).eq('id',currentUser.id);
+    currentUser.must_change_password=false;
+    await auditLog('MOT_DE_PASSE_CHANGE',{});
+    hideChangePwScreen();
+    onLoginSuccess();
+    toast('Mot de passe enregistré','success');
+  }catch(e){errEl.textContent='Erreur lors de la sauvegarde';errEl.style.display='block'}
+}
+
+async function doRequest(){
+  const nom=($('req-nom')?.value||'').trim();
+  const email=($('req-email')?.value||'').trim().toLowerCase();
+  const message=($('req-message')?.value||'').trim();
+  const st=$('req-status');
+  if(!nom||!email){st.innerHTML='<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px;font-size:12px;color:#dc2626">Nom et email requis</div>';st.style.display='block';return}
+  try{
+    await db.from('access_requests').insert({email,nom,message,status:'pending'});
+    st.innerHTML='<div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:8px;padding:10px;font-size:12px;color:#059669">✅ Demande envoyée ! Vous serez contacté(e) pour recevoir vos accès.</div>';
+    st.style.display='block';
+    $('req-nom').value='';$('req-email').value='';$('req-message').value='';
+  }catch(e){st.innerHTML='<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px;font-size:12px;color:#dc2626">Erreur lors de l&#39;envoi</div>';st.style.display='block'}
+}
+
+function doLogout(){
+  showConfirm('Se déconnecter ?','',()=>{
+    auditLog('DECONNEXION',{});
+    currentUser=null;
+    showLoginScreen();
+    toast('Déconnecté','info');
+  });
+}
+
+// ============================================================
+// POST-LOGIN SETUP
+// ============================================================
+function onLoginSuccess(){
+  applyPermissions();
+  updateUserUI();
+  // Init week/year selectors
+  const ys=$('yearSel'),ws=$('weekSel');
+  if(ys&&!ys.options.length){for(let y=2025;y<=2035;y++){const o=document.createElement('option');o.value=y;o.textContent=y;if(y===S.currentYear)o.selected=true;ys.appendChild(o)}}
+  if(ws&&!ws.options.length){for(let w=1;w<=52;w++){const o=document.createElement('option');o.value=w;o.textContent=`S${w}`;if(w===S.currentWeek)o.selected=true;ws.appendChild(o)}}
+  updateFooter();
+  setSave('saved','☁️ En ligne');
+  initReportingSelectors();
+  renderDash();
+  setTimeout(applyUIPermissions,200);
+  toast(`Bonjour ${currentUser.nom} 👋`,'success');
+}
+
+function updateUserUI(){
+  const r=ROLES[currentUser.role]||{label:'Utilisateur',icon:'👤'};
+  const av=$('user-avatar'),nm=$('user-name'),rl=$('user-role-label');
+  if(av)av.textContent=currentUser.nom.charAt(0).toUpperCase();
+  if(nm)nm.textContent=currentUser.nom;
+  if(rl)rl.textContent=`${r.icon} ${r.label}`;
+  const ap=$('nav-admin-panel');
+  if(ap)ap.style.display=currentUser.role==='superadmin'?'flex':'none';
+}
+
+function applyPermissions(){
+  const p=getPerms();
+  // Masquer boutons d'action selon rôle
+  const editBtns=document.querySelectorAll('.action-btn, .btn-primary, .btn-danger');
+  // On gère ça au niveau de chaque render plutôt que globalement
+  // Masquer sections inaccessibles dans le nav
+  if(!p.canReporting){document.querySelectorAll('.nav-btn').forEach(b=>{if(b.textContent.includes('Reporting'))b.style.display='none'})}
+  if(!p.canAdmin){const ap=$('nav-admin-panel');if(ap)ap.style.display='none'}
+}
+
+// ============================================================
+// AUDIT LOG
+// ============================================================
+async function auditLog(action, details={}){
+  if(!db||!currentUser)return;
+  try{
+    await db.from('audit_log').insert({
+      user_id:currentUser.id,
+      user_email:currentUser.email,
+      user_nom:currentUser.nom,
+      action,
+      details
+    });
+  }catch(e){console.warn('Audit log error:',e)}
+}
+
+// ============================================================
+// ADMIN PANEL
+// ============================================================
+let admTab='requests';
+
+function switchAdmTab(tab){
+  admTab=tab;
+  ['requests','users','audit'].forEach(t=>{
+    const b=$(`adm-tab-${t}`);
+    if(b){b.classList.toggle('active',t===tab)}
+  });
+  renderAdmTab();
+}
+
+function renderAdmTab(){
+  const c=$('adm-tab-content');if(!c)return;
+  if(admTab==='requests')renderAdmRequests();
+  else if(admTab==='users')renderAdmUsers();
+  else if(admTab==='audit')renderAdmAudit();
+}
+
+async function renderAdmRequests(){
+  const c=$('adm-tab-content');
+  c.innerHTML='<div class="empty-state">Chargement…</div>';
+  try{
+    const {data}=await db.from('access_requests').select('*').order('created_at',{ascending:false});
+    if(!data||!data.length){c.innerHTML='<div class="empty-state">Aucune demande d&#39;acc&egrave;s</div>';return}
+    const pending=data.filter(r=>r.status==='pending');
+    const others=data.filter(r=>r.status!=='pending');
+    let h='';
+    if(pending.length){
+      h+=`<div class="section-divider">En attente (${pending.length})</div>`;
+      h+=`<div class="table-box"><table><thead><tr><th>Nom</th><th>Email</th><th>Message</th><th>Date</th><th style="text-align:right">Actions</th></tr></thead><tbody>`;
+      pending.forEach(r=>{
+        h+=`<tr><td style="font-weight:600">${r.nom}</td><td>${r.email}</td><td style="color:var(--txt2);font-size:12px">${r.message||'—'}</td>`;
+        h+=`<td style="font-size:12px;color:var(--txt3)">${new Date(r.created_at).toLocaleDateString('fr-FR')}</td>`;
+        h+=`<td style="text-align:right"><button class="btn btn-success btn-sm" onclick="approveRequest('${r.id}','${r.nom}','${r.email}')">✅ Valider</button> <button class="btn btn-outline btn-sm" onclick="rejectRequest('${r.id}')">❌</button></td></tr>`;
+      });
+      h+=`</tbody></table></div>`;
+    }
+    if(others.length){
+      h+=`<div class="section-divider">Traitées</div>`;
+      h+=`<div class="table-box"><table><thead><tr><th>Nom</th><th>Email</th><th>Statut</th><th>Date</th></tr></thead><tbody>`;
+      others.forEach(r=>{
+        const isOk=r.status==='approved';
+        h+=`<tr><td style="font-weight:600">${r.nom}</td><td>${r.email}</td>`;
+        h+=`<td><span class="badge" style="background:${isOk?'var(--green-bg)':'var(--red-bg)'};color:${isOk?'var(--green)':'var(--red)'}">${isOk?'✅ Approuvée':'❌ Refusée'}</span></td>`;
+        h+=`<td style="font-size:12px;color:var(--txt3)">${new Date(r.created_at).toLocaleDateString('fr-FR')}</td></tr>`;
+      });
+      h+=`</tbody></table></div>`;
+    }
+    c.innerHTML=h;
+  }catch(e){c.innerHTML='<div class="empty-state">Erreur de chargement</div>'}
+}
+
+async function approveRequest(id,nom,email){
+  // Ouvrir modal attribution rôle
+  $('role-user-id').value=id;
+  $('role-user-info').value=`${nom} — ${email}`;
+  $('modal-role-title').textContent=`Valider l'accès — ${nom}`;
+  generateTempPw();
+  // Stocker email/nom pour usage dans saveUserRole
+  $('role-user-id').dataset.nom=nom;
+  $('role-user-id').dataset.email=email;
+  $('role-user-id').dataset.type='request';
+  openModal('modal-role');
+}
+
+function generateTempPw(){const pw=generatePassword();const el=$('role-temp-pw');if(el)el.value=pw}
+function generateResetPw(){const pw=generatePassword();const el=$('reset-temp-pw');if(el)el.value=pw}
+
+async function saveUserRole(){
+  const reqId=$('role-user-id').value;
+  const nom=$('role-user-id').dataset.nom;
+  const email=$('role-user-id').dataset.email;
+  const type=$('role-user-id').dataset.type;
+  const role=$('role-select').value;
+  const tempPw=$('role-temp-pw').value;
+  if(!tempPw){toast('Générez un mot de passe temporaire','error');return}
+  try{
+    const hash=await hashPassword(tempPw);
+    if(type==='request'){
+      // Créer le compte utilisateur
+      const {error}=await db.from('msp_users').insert({
+        email,nom,role,
+        password_hash:hash,
+        temp_password:tempPw,
+        must_change_password:true,
+        actif:true
+      });
+      if(error)throw error;
+      // Marquer la demande comme approuvée
+      await db.from('access_requests').update({status:'approved'}).eq('id',reqId);
+      await auditLog('COMPTE_CREE',{email,nom,role});
+      toast(`Compte créé pour ${nom} — Mdp temporaire : ${tempPw}`,'success',8000);
+    } else {
+      // Mise à jour rôle existant
+      await db.from('msp_users').update({role}).eq('id',reqId);
+      await auditLog('ROLE_MODIFIE',{email,nom,role});
+      toast(`Rôle mis à jour pour ${nom}`,'success');
+    }
+    closeModal('modal-role');
+    renderAdmTab();
+  }catch(e){toast('Erreur: '+e.message,'error')}
+}
+
+async function rejectRequest(id){
+  showConfirm('Refuser cette demande ?','',async()=>{
+    await db.from('access_requests').update({status:'rejected'}).eq('id',id);
+    toast('Demande refusée','info');
+    renderAdmTab();
+  });
+}
+
+async function renderAdmUsers(){
+  const c=$('adm-tab-content');
+  c.innerHTML='<div class="empty-state">Chargement…</div>';
+  try{
+    const {data}=await db.from('msp_users').select('*').order('nom');
+    if(!data||!data.length){c.innerHTML='<div class="empty-state">Aucun utilisateur</div>';return}
+    let h=`<div class="table-box"><table><thead><tr><th>Nom</th><th>Email</th><th>Rôle</th><th>Statut</th><th>Dernière connexion</th><th style="text-align:right">Actions</th></tr></thead><tbody>`;
+    data.forEach(u=>{
+      const r=ROLES[u.role]||{label:u.role,icon:'👤'};
+      const isMe=currentUser&&u.id===currentUser.id;
+      h+=`<tr><td style="font-weight:600">${u.nom}${isMe?' <span class="badge" style="background:var(--blue-bg);color:var(--blue);font-size:9px">Vous</span>':''}</td>`;
+      h+=`<td style="font-size:12px;color:var(--txt2)">${u.email}</td>`;
+      h+=`<td><span class="badge" style="background:var(--purple-bg);color:var(--purple)">${r.icon} ${r.label}</span></td>`;
+      h+=`<td>${u.actif?'<span class="badge" style="background:var(--green-bg);color:var(--green)">Actif</span>':'<span class="badge" style="background:var(--red-bg);color:var(--red)">Inactif</span>'}</td>`;
+      h+=`<td style="font-size:12px;color:var(--txt3)">${u.last_login?new Date(u.last_login).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'Jamais'}</td>`;
+      h+=`<td style="text-align:right"><button class="btn btn-outline btn-sm" onclick="openEditRole('${u.id}','${u.nom}','${u.email}','${u.role}')">✏️ Rôle</button> `;
+      h+=`<button class="btn btn-outline btn-sm" onclick="openResetPw('${u.id}','${u.nom}')">🔑 Mdp</button> `;
+      if(!isMe)h+=`<button class="action-btn" onclick="toggleUserActif('${u.id}',${u.actif},'${u.nom}')">${u.actif?'🔒':'🔓'}</button>`;
+      h+=`</td></tr>`;
+    });
+    h+=`</tbody></table></div>`;
+    c.innerHTML=h;
+  }catch(e){c.innerHTML='<div class="empty-state">Erreur de chargement</div>'}
+}
+
+function openEditRole(id,nom,email,role){
+  $('role-user-id').value=id;
+  $('role-user-id').dataset.nom=nom;
+  $('role-user-id').dataset.email=email;
+  $('role-user-id').dataset.type='edit';
+  $('role-user-info').value=`${nom} — ${email}`;
+  $('modal-role-title').textContent=`Modifier le rôle — ${nom}`;
+  $('role-select').value=role;
+  $('role-temp-pw').value='';
+  openModal('modal-role');
+}
+
+function openResetPw(id,nom){
+  $('reset-user-id').value=id;
+  $('reset-user-name').textContent=nom;
+  generateResetPw();
+  openModal('modal-reset-pw');
+}
+
+async function doResetPw(){
+  const id=$('reset-user-id').value;
+  const nom=$('reset-user-name').textContent;
+  const tempPw=$('reset-temp-pw').value;
+  if(!tempPw){toast('Générez un mot de passe','error');return}
+  try{
+    const hash=await hashPassword(tempPw);
+    await db.from('msp_users').update({password_hash:hash,temp_password:tempPw,must_change_password:true}).eq('id',id);
+    await auditLog('MOT_DE_PASSE_REINITIALISE',{nom});
+    toast(`Mdp réinitialisé pour ${nom} — Temporaire : ${tempPw}`,'success',8000);
+    closeModal('modal-reset-pw');
+    renderAdmTab();
+  }catch(e){toast('Erreur','error')}
+}
+
+async function toggleUserActif(id,actif,nom){
+  const action=actif?'désactiver':'activer';
+  showConfirm(`${actif?'Désactiver':'Activer'} cet utilisateur ?`,nom,async()=>{
+    await db.from('msp_users').update({actif:!actif}).eq('id',id);
+    await auditLog(actif?'COMPTE_DESACTIVE':'COMPTE_ACTIVE',{nom});
+    toast(`Compte ${action} pour ${nom}`,'success');
+    renderAdmTab();
+  });
+}
+
+async function renderAdmAudit(){
+  const c=$('adm-tab-content');
+  c.innerHTML='<div class="empty-state">Chargement…</div>';
+  try{
+    const {data}=await db.from('audit_log').select('*').order('created_at',{ascending:false}).limit(200);
+    if(!data||!data.length){c.innerHTML='<div class="empty-state">Aucune activité enregistrée</div>';return}
+    const actionLabels={
+      CONNEXION:'🔑 Connexion',DECONNEXION:'🚪 Déconnexion',
+      MOT_DE_PASSE_CHANGE:'🔑 Mdp changé',MOT_DE_PASSE_REINITIALISE:'🔑 Mdp réinitialisé',
+      ABSENCE_MODIFIEE:'📅 Absence modifiée',RESIDENT_AJOUTE:'👤 Résident ajouté',
+      RESIDENT_MODIFIE:'✏️ Résident modifié',RESIDENT_SUPPRIME:'🗑️ Résident supprimé',
+      COMMANDE_IMPRIMEE:'🖨️ Commande imprimée',EMAIL_ENVOYE:'📧 Email envoyé',
+      COMPTE_CREE:'✅ Compte créé',ROLE_MODIFIE:'⚙️ Rôle modifié',
+      COMPTE_DESACTIVE:'🔒 Compte désactivé',COMPTE_ACTIVE:'🔓 Compte activé',
+      TEMPORAIRE_AJOUTE:'🏠 AT ajouté',TEMPORAIRE_MODIFIE:'✏️ AT modifié',
+      ABSENCE_PLANIFIEE_AJOUTEE:'📅 Absence planifiée',
+      GROUPE_MODIFIE:'👨‍🍳 Groupe modifié',LIEU_MODIFIE:'📍 Lieu modifié'
+    };
+    let h=`<div class="table-box"><table><thead><tr><th>Date / Heure</th><th>Utilisateur</th><th>Action</th><th>Détails</th></tr></thead><tbody>`;
+    data.forEach(l=>{
+      const d=new Date(l.created_at);
+      const label=actionLabels[l.action]||l.action;
+      let details='';
+      if(l.details){const det=l.details;if(det.nom)details+=det.nom;if(det.email&&det.email!==l.user_email)details+=(details?' — ':'')+det.email;if(det.role)details+=(details?' → ':' → ')+ROLES[det.role]?.label}
+      h+=`<tr><td style="font-size:11px;white-space:nowrap;color:var(--txt2)">${d.toLocaleDateString('fr-FR')} ${d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</td>`;
+      h+=`<td style="font-weight:600;font-size:12px">${l.user_nom||'—'}<div style="font-size:10px;color:var(--txt3)">${l.user_email||''}</div></td>`;
+      h+=`<td><span style="font-size:12px;font-weight:500">${label}</span></td>`;
+      h+=`<td style="font-size:12px;color:var(--txt2)">${details}</td></tr>`;
+    });
+    h+=`</tbody></table></div>`;
+    c.innerHTML=h;
+  }catch(e){c.innerHTML='<div class="empty-state">Erreur de chargement</div>'}
+}
+
+// Ajouter renderAdmTab au map de navigation
+
+
+// ============================================================
+// UI PERMISSIONS — masquer boutons selon rôle
+// ============================================================
+function applyUIPermissions(){
+  if(!currentUser)return;
+  const p=getPerms();
+  // Boutons "+" dans les pages de config
+  document.querySelectorAll('.perm-edit').forEach(el=>{el.style.display=p.canEdit?'':'none'});
+  document.querySelectorAll('.perm-absences').forEach(el=>{el.style.display=(p.canAbsences||p.canEdit)?'':'none'});
+  document.querySelectorAll('.perm-commande').forEach(el=>{el.style.display=p.canCommande?'':'none'});
+  document.querySelectorAll('.perm-reporting').forEach(el=>{el.style.display=p.canReporting?'':'none'});
+  document.querySelectorAll('.perm-admin').forEach(el=>{el.style.display=p.canAdmin?'':'none'});
+}
+
+// ============================================================
+// RENDER — REPORTING MENSUEL
+// ============================================================
+function initReportingSelectors(){
+  const ms=$('rep-month'),ys=$('rep-year');
+  if(!ms||ms.options.length>0)return;
+  const now=new Date();
+  const mois=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+  mois.forEach((m,i)=>{const o=document.createElement('option');o.value=i;o.textContent=m;if(i===now.getMonth()-1||(now.getMonth()===0&&i===11))o.selected=true;ms.appendChild(o)});
+  for(let y=2025;y<=2035;y++){const o=document.createElement('option');o.value=y;o.textContent=y;if(y===now.getFullYear())o.selected=true;ys.appendChild(o)}
+}
+
+// Calcule le numéro de semaine ISO pour une date
+function getISOWeek(date){
+  const d=new Date(Date.UTC(date.getFullYear(),date.getMonth(),date.getDate()));
+  const dayNum=d.getUTCDay()||7;
+  d.setUTCDate(d.getUTCDate()+4-dayNum);
+  const yearStart=new Date(Date.UTC(d.getUTCFullYear(),0,1));
+  return{week:Math.ceil((((d-yearStart)/86400000)+1)/7),year:d.getUTCFullYear()};
+}
+
+// Compte les repas pour un jour donné, un lieu, un service (midi/soir), une liste de textures
+function countRepasByDay(dateObj, lieuId, service, textures){
+  const {week,year}=getISOWeek(dateObj);
+  const wk=`${year}_${week}`;
+  const dayIdx=dateObj.getDay()===0?6:dateObj.getDay()-1; // lundi=0
+  const slot=dayIdx*2+(service==='soir'?1:0);
+  let count=0;
+
+  // Résidents
+  S.residents.filter(r=>{
+    const aff=S.affectations[r.id];
+    return service==='midi'?aff?.midi===lieuId:aff?.soir===lieuId;
+  }).forEach(r=>{
+    // Vérifier texture
+    if(textures&&textures.length>0&&!textures.includes(r.regime))return;
+    const abs=S.absences[wk]?.[r.id]||[];
+    if(abs[slot])return; // absent
+    // Pique-nique compte comme repas
+    count++;
+  });
+
+  // Temporaires
+  (S.temporaires||[]).filter(t=>{
+    if(!isTempoActiveForDate(t,dateObj))return false;
+    return service==='midi'?t.lieuMidi===lieuId:t.lieuSoir===lieuId;
+  }).forEach(t=>{
+    if(textures&&textures.length>0&&!textures.includes(t.regime))return;
+    const hab=t.habitudes;
+    if(hab&&hab[dayIdx*2+(service==='soir'?1:0)]===false)return;
+    const abs=S.absences[wk]?.[t.id]||[];
+    if(abs[slot])return;
+    count++;
+  });
+
+  // Groupes (comptés en Normal uniquement)
+  if(!textures||textures.includes('Normal')){
+    S.groupes.filter(g=>g.lieuId===lieuId).forEach(g=>{
+      count+=service==='midi'?(g.vals?.[dayIdx]||0):(g.valsSoir?.[dayIdx]||0);
+    });
+  }
+
+  return count;
+}
+
+function isTempoActiveForDate(t,date){
+  if(t.archived)return false;
+  const d=new Date(date);d.setHours(12,0,0,0);
+  const db=new Date(t.dateArrivee);db.setHours(0,0,0,0);
+  const fn=new Date(t.dateDepart);fn.setHours(23,59,59,999);
+  return d>=db&&d<=fn;
+}
+
+function buildReportingData(month, year){
+  const daysInMonth=new Date(year,month+1,0).getDate();
+  const lieux=S.lieux.filter(l=>!l.isStaffOnly);
+  const textures=['Normal','Mixé']; // Regroupement : tout ce qui n'est pas Mixé = Normal
+
+  // Résultat : pour chaque lieu × service × texture : tableau de 31 valeurs
+  const result={
+    month, year, daysInMonth,
+    lieux: lieux.map(l=>({
+      id:l.id, nom:l.nom, section:l.section,
+      midi:{
+        normal: Array(31).fill(0),
+        mixe:   Array(31).fill(0)
+      },
+      soir:{
+        normal: Array(31).fill(0),
+        mixe:   Array(31).fill(0)
+      }
+    }))
+  };
+
+  for(let d=1;d<=daysInMonth;d++){
+    const date=new Date(year,month,d);
+    result.lieux.forEach(lieu=>{
+      // Midi Normal
+      lieu.midi.normal[d-1]=countRepasByDayFull(date,lieu.id,'midi','Normal');
+      // Midi Mixé
+      lieu.midi.mixe[d-1]=countRepasByDayFull(date,lieu.id,'midi','Mixé');
+      // Soir Normal
+      lieu.soir.normal[d-1]=countRepasByDayFull(date,lieu.id,'soir','Normal');
+      // Soir Mixé
+      lieu.soir.mixe[d-1]=countRepasByDayFull(date,lieu.id,'soir','Mixé');
+    });
+  }
+  return result;
+}
+
+function countRepasByDayFull(dateObj, lieuId, service, texture){
+  const {week,year}=getISOWeek(dateObj);
+  const wk=`${year}_${week}`;
+  const dayIdx=dateObj.getDay()===0?6:dateObj.getDay()-1;
+  const slot=dayIdx*2+(service==='soir'?1:0);
+  let count=0;
+
+  S.residents.filter(r=>{
+    const aff=S.affectations[r.id];
+    return service==='midi'?aff?.midi===lieuId:aff?.soir===lieuId;
+  }).forEach(r=>{
+    if(r.regime!==texture)return;
+    const abs=S.absences[wk]?.[r.id]||[];
+    if(abs[slot])return;
+    count++;
+  });
+
+  (S.temporaires||[]).filter(t=>{
+    if(!isTempoActiveForDate(t,dateObj))return false;
+    return service==='midi'?t.lieuMidi===lieuId:t.lieuSoir===lieuId;
+  }).forEach(t=>{
+    if(t.regime!==texture)return;
+    const hab=t.habitudes;
+    if(hab&&hab[slot]===false)return;
+    const abs=S.absences[wk]?.[t.id]||[];
+    if(abs[slot])return;
+    count++;
+  });
+
+  // Groupes uniquement pour Normal
+  if(texture==='Normal'){
+    S.groupes.filter(g=>g.lieuId===lieuId).forEach(g=>{
+      count+=service==='midi'?(g.vals?.[dayIdx]||0):(g.valsSoir?.[dayIdx]||0);
+    });
+  }
+
+  return count;
+}
+
+function renderReporting(){
+  initReportingSelectors();
+  const month=+$('rep-month').value;
+  const year=+$('rep-year').value;
+  const c=$('rep-content');
+  if(isNaN(month)||isNaN(year)){c.innerHTML='<div class="empty-state">Sélectionnez un mois</div>';return}
+
+  const data=buildReportingData(month,year);
+  const moisNom=MONTHS[month];
+  const daysInMonth=data.daysInMonth;
+
+  // Totaux globaux (toutes structures)
+  let totalDejNormal=0,totalDejMixe=0,totalDinNormal=0,totalDinMixe=0;
+  data.lieux.forEach(l=>{
+    totalDejNormal+=l.midi.normal.reduce((a,b)=>a+b,0);
+    totalDejMixe+=l.midi.mixe.reduce((a,b)=>a+b,0);
+    totalDinNormal+=l.soir.normal.reduce((a,b)=>a+b,0);
+    totalDinMixe+=l.soir.mixe.reduce((a,b)=>a+b,0);
+  });
+  const totalGlobal=totalDejNormal+totalDejMixe+totalDinNormal+totalDinMixe;
+
+  // En-têtes jours
+  const jourNoms=['L','M','M','J','V','S','D'];
+  let daysHeader='';
+  for(let d=1;d<=daysInMonth;d++){
+    const date=new Date(year,month,d);
+    const dow=date.getDay()===0?6:date.getDay()-1;
+    const isWE=dow>=5;
+    daysHeader+=`<th style="text-align:center;min-width:28px;font-size:10px;${isWE?'color:var(--red);background:#fef2f2':''}">${d}<br><span style="font-size:8px;font-weight:400">${jourNoms[dow]}</span></th>`;
+  }
+
+  // Tableau détaillé
+  let tableRows='';
+  data.lieux.forEach(l=>{
+    const totMN=l.midi.normal.reduce((a,b)=>a+b,0);
+    const totMX=l.midi.mixe.reduce((a,b)=>a+b,0);
+    const totSN=l.soir.normal.reduce((a,b)=>a+b,0);
+    const totSX=l.soir.mixe.reduce((a,b)=>a+b,0);
+    if(totMN+totMX+totSN+totSX===0)return;
+
+    // Ligne Midi Normal
+    if(totMN>0||true){
+      let cells='';
+      for(let d=0;d<daysInMonth;d++){
+        const v=l.midi.normal[d];
+        const dow=new Date(year,month,d+1).getDay();
+        const isWE=dow===0||dow===6;
+        cells+=`<td style="text-align:center;font-size:11px;${isWE?'background:#fef9f9':''}${v>0?';font-weight:600':';color:var(--txt3)'}">${v||'—'}</td>`;
+      }
+      tableRows+=`<tr><td style="font-weight:600;white-space:nowrap;padding-left:12px">${l.nom}</td><td style="color:var(--txt2);font-size:12px;white-space:nowrap">☀ Déjeuner Normal</td>${cells}<td style="text-align:center;font-weight:700;background:var(--blue-bg);color:var(--blue)">${totMN}</td></tr>`;
+    }
+    // Ligne Midi Mixé
+    if(totMX>0){
+      let cells='';
+      for(let d=0;d<daysInMonth;d++){
+        const v=l.midi.mixe[d];
+        const dow=new Date(year,month,d+1).getDay();
+        const isWE=dow===0||dow===6;
+        cells+=`<td style="text-align:center;font-size:11px;${isWE?'background:#fef9f9':''}${v>0?';font-weight:600;color:var(--green)':';color:var(--txt3)'}">${v||'—'}</td>`;
+      }
+      tableRows+=`<tr><td style="font-weight:600;white-space:nowrap;padding-left:12px">${l.nom}</td><td style="color:var(--green);font-size:12px;white-space:nowrap">☀ Déjeuner Mixé</td>${cells}<td style="text-align:center;font-weight:700;background:var(--green-bg);color:var(--green)">${totMX}</td></tr>`;
+    }
+    // Ligne Soir Normal
+    if(totSN>0||true){
+      let cells='';
+      for(let d=0;d<daysInMonth;d++){
+        const v=l.soir.normal[d];
+        const dow=new Date(year,month,d+1).getDay();
+        const isWE=dow===0||dow===6;
+        cells+=`<td style="text-align:center;font-size:11px;${isWE?'background:#fef9f9':''}${v>0?';font-weight:600':';color:var(--txt3)'}">${v||'—'}</td>`;
+      }
+      tableRows+=`<tr style="border-top:1px solid var(--border)"><td style="font-weight:600;white-space:nowrap;padding-left:12px">${l.nom}</td><td style="color:var(--txt2);font-size:12px;white-space:nowrap">🌙 Diner Normal</td>${cells}<td style="text-align:center;font-weight:700;background:var(--blue-bg);color:var(--blue)">${totSN}</td></tr>`;
+    }
+    // Ligne Soir Mixé
+    if(totSX>0){
+      let cells='';
+      for(let d=0;d<daysInMonth;d++){
+        const v=l.soir.mixe[d];
+        const dow=new Date(year,month,d+1).getDay();
+        const isWE=dow===0||dow===6;
+        cells+=`<td style="text-align:center;font-size:11px;${isWE?'background:#fef9f9':''}${v>0?';font-weight:600;color:var(--green)':';color:var(--txt3)'}">${v||'—'}</td>`;
+      }
+      tableRows+=`<tr><td style="font-weight:600;white-space:nowrap;padding-left:12px">${l.nom}</td><td style="color:var(--green);font-size:12px;white-space:nowrap">🌙 Diner Mixé</td>${cells}<td style="text-align:center;font-weight:700;background:var(--green-bg);color:var(--green)">${totSX}</td></tr>`;
+    }
+    // Ligne séparatrice
+    tableRows+=`<tr style="height:2px;background:var(--border)"><td colspan="${daysInMonth+3}"></td></tr>`;
+  });
+
+  // Ligne totaux colonnes
+  let colTotals='';
+  for(let d=0;d<daysInMonth;d++){
+    let dayTotal=0;
+    data.lieux.forEach(l=>{dayTotal+=l.midi.normal[d]+l.midi.mixe[d]+l.soir.normal[d]+l.soir.mixe[d]});
+    const dow=new Date(year,month,d+1).getDay();
+    const isWE=dow===0||dow===6;
+    colTotals+=`<td style="text-align:center;font-weight:700;font-size:11px;${isWE?'background:#fef2f2;color:var(--red)':'background:var(--bg);color:var(--txt)'}">${dayTotal||'—'}</td>`;
+  }
+  tableRows+=`<tr style="border-top:2px solid var(--border)"><td colspan="2" style="font-weight:700;font-size:13px">TOTAL JOUR</td>${colTotals}<td style="text-align:center;font-weight:800;font-size:14px;background:var(--blue);color:#fff">${totalGlobal}</td></tr>`;
+
+  const html=`
+    <!-- Synthèse -->
+    <div class="cards-grid" style="margin-bottom:28px">
+      <div class="stat-card c-blue">
+        <div class="stat-label">Déjeuners Normal</div>
+        <div class="stat-value">${totalDejNormal}</div>
+        <div style="font-size:11px;color:var(--txt3);margin-top:4px">repas du midi</div>
+      </div>
+      <div class="stat-card c-green">
+        <div class="stat-label">Déjeuners Mixés</div>
+        <div class="stat-value">${totalDejMixe}</div>
+        <div style="font-size:11px;color:var(--txt3);margin-top:4px">repas du midi</div>
+      </div>
+      <div class="stat-card c-teal">
+        <div class="stat-label">Diners Normal</div>
+        <div class="stat-value">${totalDinNormal}</div>
+        <div style="font-size:11px;color:var(--txt3);margin-top:4px">repas du soir</div>
+      </div>
+      <div class="stat-card c-amber">
+        <div class="stat-label">Diners Mixés</div>
+        <div class="stat-value">${totalDinMixe}</div>
+        <div style="font-size:11px;color:var(--txt3);margin-top:4px">repas du soir</div>
+      </div>
+      <div class="stat-card" style="border-top:3px solid var(--purple)">
+        <div class="stat-label">Total repas</div>
+        <div class="stat-value" style="color:var(--purple)">${totalGlobal}</div>
+        <div style="font-size:11px;color:var(--txt3);margin-top:4px">${moisNom} ${year}</div>
+      </div>
+    </div>
+
+    <!-- Tableau détaillé -->
+    <div class="table-box" style="overflow-x:auto">
+      <div class="table-top">
+        <h2>Détail par lieu et par jour — ${moisNom} ${year}</h2>
+        <span style="font-size:12px;color:var(--txt3)">Les week-ends sont surlignés en rouge</span>
+      </div>
+      <table style="min-width:${daysInMonth*30+300}px">
+        <thead>
+          <tr>
+            <th style="min-width:130px">Lieu</th>
+            <th style="min-width:130px">Service / Régime</th>
+            ${daysHeader}
+            <th style="text-align:center;background:var(--blue-bg);color:var(--blue);min-width:50px">TOTAL</th>
+          </tr>
+        </thead>
+        <tbody>${tableRows}</tbody>
+      </table>
+    </div>
+  `;
+
+  c.innerHTML=html;
+}
+
+function printReporting(){
+  const month=+$('rep-month').value;
+  const year=+$('rep-year').value;
+  const moisNom=MONTHS[month];
+  const data=buildReportingData(month,year);
+  const daysInMonth=data.daysInMonth;
+
+  let totalDejNormal=0,totalDejMixe=0,totalDinNormal=0,totalDinMixe=0;
+  data.lieux.forEach(l=>{
+    totalDejNormal+=l.midi.normal.reduce((a,b)=>a+b,0);
+    totalDejMixe+=l.midi.mixe.reduce((a,b)=>a+b,0);
+    totalDinNormal+=l.soir.normal.reduce((a,b)=>a+b,0);
+    totalDinMixe+=l.soir.mixe.reduce((a,b)=>a+b,0);
+  });
+
+  const jourNoms=['L','M','M','J','V','S','D'];
+  let daysH='<th>Lieu</th><th>Service</th>';
+  for(let d=1;d<=daysInMonth;d++){const dow=new Date(year,month,d).getDay()===0?6:new Date(year,month,d).getDay()-1;daysH+=`<th style="${dow>=5?'background:#fdd':''}font-size:9px">${d}<br>${jourNoms[dow]}</th>`}
+  daysH+='<th>TOT</th>';
+
+  let rows='';
+  data.lieux.forEach(l=>{
+    const totMN=l.midi.normal.reduce((a,b)=>a+b,0),totMX=l.midi.mixe.reduce((a,b)=>a+b,0);
+    const totSN=l.soir.normal.reduce((a,b)=>a+b,0),totSX=l.soir.mixe.reduce((a,b)=>a+b,0);
+    if(totMN+totMX+totSN+totSX===0)return;
+    const mkRow=(arr,tot,label,color)=>{let c='';arr.forEach((v,i)=>{const dow=new Date(year,month,i+1).getDay();c+=`<td style="text-align:center${dow===0||dow===6?';background:#fef2f2':''}">${v||''}</td>`});return`<tr><td>${l.nom}</td><td style="color:${color};font-size:9px">${label}</td>${c}<td style="font-weight:700;text-align:center;background:#e0e0e0">${tot}</td></tr>`};
+    rows+=mkRow(l.midi.normal,totMN,'☀ Déj Normal','#333');
+    if(totMX>0)rows+=mkRow(l.midi.mixe,totMX,'☀ Déj Mixé','#059669');
+    rows+=mkRow(l.soir.normal,totSN,'🌙 Din Normal','#333');
+    if(totSX>0)rows+=mkRow(l.soir.mixe,totSX,'🌙 Din Mixé','#059669');
+    rows+='<tr style="height:4px;background:#ccc"><td colspan="'+(daysInMonth+3)+'"></td></tr>';
+  });
+
+  let colTots='';
+  for(let d=0;d<daysInMonth;d++){let t=0;data.lieux.forEach(l=>{t+=l.midi.normal[d]+l.midi.mixe[d]+l.soir.normal[d]+l.soir.mixe[d]});const dow=new Date(year,month,d+1).getDay();colTots+=`<td style="font-weight:700;text-align:center;background:#e0e0e0${dow===0||dow===6?';color:red':''}">${t||''}</td>`}
+  rows+=`<tr style="border-top:2px solid #000"><td colspan="2" style="font-weight:700">TOTAL JOUR</td>${colTots}<td style="font-weight:800;text-align:center;background:#1a56db;color:#fff">${totalDejNormal+totalDejMixe+totalDinNormal+totalDinMixe}</td></tr>`;
+
+  const pw=window.open('','_blank');
+  pw.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Reporting ${moisNom} ${year}</title>
+  <style>@page{margin:8mm;size:A4 landscape}*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;font-size:9px}
+  h1{font-size:16px;text-align:center;margin-bottom:4px}h2{font-size:12px;margin:16px 0 6px;border-bottom:2px solid #000;padding-bottom:3px}
+  .synthese{display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap}
+  .card{border:1px solid #000;padding:10px 16px;min-width:120px;text-align:center}
+  .card-label{font-size:9px;font-weight:700;text-transform:uppercase;margin-bottom:4px}
+  .card-val{font-size:22px;font-weight:800}
+  table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:2px 3px}th{background:#e0e0e0;font-weight:700;text-align:center}
+  </style></head><body>`);
+  pw.document.write(`<h1>REPORTING MENSUEL — ${moisNom.toUpperCase()} ${year}</h1><p style="text-align:center;font-size:10px;margin-bottom:12px">Maison Saint-Paul — ANDAPEI Lot-et-Garonne</p>`);
+  pw.document.write(`<div class="synthese"><div class="card"><div class="card-label">Déjeuners Normal</div><div class="card-val">${totalDejNormal}</div></div><div class="card"><div class="card-label">Déjeuners Mixés</div><div class="card-val">${totalDejMixe}</div></div><div class="card"><div class="card-label">Diners Normal</div><div class="card-val">${totalDinNormal}</div></div><div class="card"><div class="card-label">Diners Mixés</div><div class="card-val">${totalDinMixe}</div></div><div class="card" style="background:#1a56db;color:#fff"><div class="card-label">TOTAL REPAS</div><div class="card-val">${totalDejNormal+totalDejMixe+totalDinNormal+totalDinMixe}</div></div></div>`);
+  pw.document.write(`<h2>Détail par lieu et par jour</h2><table><thead><tr>${daysH}</tr></thead><tbody>${rows}</tbody></table>`);
+  pw.document.write(`</body></html>`);pw.document.close();pw.print();
+}
+
+function exportReportingExcel(){
+  const month=+$('rep-month').value;
+  const year=+$('rep-year').value;
+  const moisNom=MONTHS[month];
+  const data=buildReportingData(month,year);
+  const daysInMonth=data.daysInMonth;
+  const wb=XLSX.utils.book_new();
+
+  // Feuille 1 : Synthèse
+  let totalDejNormal=0,totalDejMixe=0,totalDinNormal=0,totalDinMixe=0;
+  data.lieux.forEach(l=>{totalDejNormal+=l.midi.normal.reduce((a,b)=>a+b,0);totalDejMixe+=l.midi.mixe.reduce((a,b)=>a+b,0);totalDinNormal+=l.soir.normal.reduce((a,b)=>a+b,0);totalDinMixe+=l.soir.mixe.reduce((a,b)=>a+b,0)});
+  const synthData=[
+    [`REPORTING MENSUEL — ${moisNom} ${year}`],
+    ['Maison Saint-Paul — ANDAPEI Lot-et-Garonne'],
+    [],
+    ['Type','Nombre'],
+    ['Déjeuners Normal',totalDejNormal],
+    ['Déjeuners Mixés',totalDejMixe],
+    ['Diners Normal',totalDinNormal],
+    ['Diners Mixés',totalDinMixe],
+    ['TOTAL REPAS',totalDejNormal+totalDejMixe+totalDinNormal+totalDinMixe]
+  ];
+  const ws1=XLSX.utils.aoa_to_sheet(synthData);
+  ws1['!cols']=[{wch:25},{wch:15}];
+  XLSX.utils.book_append_sheet(wb,ws1,'Synthèse');
+
+  // Feuille 2 : Détail
+  const jourNoms=['L','M','M','J','V','S','D'];
+  const header=['Lieu','Service'];
+  for(let d=1;d<=daysInMonth;d++){const dow=new Date(year,month,d).getDay()===0?6:new Date(year,month,d).getDay()-1;header.push(`${d} ${jourNoms[dow]}`)}
+  header.push('TOTAL');
+  const detailData=[header];
+
+  data.lieux.forEach(l=>{
+    const totMN=l.midi.normal.reduce((a,b)=>a+b,0),totMX=l.midi.mixe.reduce((a,b)=>a+b,0);
+    const totSN=l.soir.normal.reduce((a,b)=>a+b,0),totSX=l.soir.mixe.reduce((a,b)=>a+b,0);
+    if(totMN+totMX+totSN+totSX===0)return;
+    detailData.push([l.nom,'Déjeuner Normal',...l.midi.normal.slice(0,daysInMonth),totMN]);
+    if(totMX>0)detailData.push([l.nom,'Déjeuner Mixé',...l.midi.mixe.slice(0,daysInMonth),totMX]);
+    detailData.push([l.nom,'Diner Normal',...l.soir.normal.slice(0,daysInMonth),totSN]);
+    if(totSX>0)detailData.push([l.nom,'Diner Mixé',...l.soir.mixe.slice(0,daysInMonth),totSX]);
+    detailData.push([]);
+  });
+
+  // Ligne totaux
+  const totRow=['','TOTAL JOUR'];
+  for(let d=0;d<daysInMonth;d++){let t=0;data.lieux.forEach(l=>{t+=l.midi.normal[d]+l.midi.mixe[d]+l.soir.normal[d]+l.soir.mixe[d]});totRow.push(t)}
+  totRow.push(totalDejNormal+totalDejMixe+totalDinNormal+totalDinMixe);
+  detailData.push(totRow);
+
+  const ws2=XLSX.utils.aoa_to_sheet(detailData);
+  ws2['!cols']=[{wch:20},{wch:18},...Array(daysInMonth).fill({wch:5}),{wch:8}];
+  XLSX.utils.book_append_sheet(wb,ws2,'Détail');
+
+  XLSX.writeFile(wb,`MSP_Reporting_${moisNom}_${year}.xlsx`);
+  toast('Export Excel créé','success');
+}
+
+// ============================================================
+// INITIALIZATION
+// ============================================================
+window.addEventListener('DOMContentLoaded',async()=>{
+  // Init Supabase — juste connecter, pas charger les données
+  try{
+    db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    setSyncStatus('online');
+  }catch(e){
+    console.error('Supabase connect error:',e);
+    setSyncStatus('offline');
+  }
+  // Init état minimal pour éviter les erreurs avant login
+  S = JSON.parse(JSON.stringify(defaultState));
+  S.currentWeek = getCurWeek();
+  S.currentYear = getCurYear();
+
+  hideLoading();
+  showLoginScreen();
+  
+  // Close modals on overlay click
+  document.querySelectorAll('.modal-overlay').forEach(o=>o.addEventListener('click',function(e){if(e.target===this)this.classList.remove('open')}));
+  
+  // PWA
+  if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+  let dp;const ib=$('installBtn');
+  window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();dp=e;if(ib)ib.style.display='inline-flex'});
+  if(ib)ib.addEventListener('click',async()=>{if(!dp)return;dp.prompt();const{outcome}=await dp.userChoice;if(outcome==='accepted'){toast('Application installée !','success');ib.style.display='none'}dp=null});
+  
+  toast('Application chargée — données synchronisées','success');
+});
+</script>
+</body>
+</html>
