@@ -429,7 +429,9 @@ tr:hover td{background:rgba(0,0,0,.015)}
   <div class="page-header">
     <div><h1>Commande — Absences</h1><p class="subtitle" id="cmd-sub"></p></div>
     <div class="btn-group" style="align-items:center">
-      <button class="btn btn-outline btn-sm" onclick="resetWeek()">🔄 Réinitialiser</button>
+      <button class="btn btn-outline btn-sm" onclick="exportCommandeExcel()">📤 Export Excel</button>
+      <label class="btn btn-outline btn-sm perm-commande" style="cursor:pointer">📥 Import Excel<input type="file" id="import-cmd-excel" accept=".xlsx,.xls" style="display:none" onchange="importCommandeExcel(event)"></label>
+      <button class="btn btn-outline btn-sm" id="btn-reset-week" onclick="resetWeek()" style="opacity:.3;cursor:not-allowed" disabled title="Réservé au Super Admin">🔄 Réinitialiser</button>
     </div>
   </div>
   <div class="info-box">💡 Cliquez sur un bouton pour basculer : OK → ABS → PN. <span class="tempo-badge">AT</span> = accueil temporaire.</div>
@@ -450,11 +452,9 @@ tr:hover td{background:rgba(0,0,0,.015)}
     <div class="btn-group">
       <button class="btn btn-outline btn-sm" id="btn-bon" onclick="genererBon()" style="display:none">📝 Bon de Modification</button>
       <div class="perm-admin" style="display:none;gap:8px">
-        <button class="btn btn-purple btn-sm" onclick="exportExcel()">📤 Excel</button>
-        <button class="btn btn-purple btn-sm" onclick="$('import-excel-in').click()">📥 Import Excel</button>
-        <input type="file" id="import-excel-in" accept=".xlsx,.xls" style="display:none" onchange="importExcel(event)">
-        <button class="btn btn-success btn-sm" onclick="exportBackup()">💾 Backup</button>
-        <button class="btn btn-outline btn-sm" style="border-color:var(--teal);color:var(--teal)" onclick="$('import-backup-in').click()">📥 Restaurer</button>
+
+        <button class="btn btn-success btn-sm perm-admin" style="display:none" onclick="exportBackup()">💾 Backup</button>
+        <button class="btn btn-outline btn-sm perm-admin" style="display:none;border-color:var(--teal);color:var(--teal)" onclick="$('import-backup-in').click()">📥 Restaurer</button>
         <input type="file" id="import-backup-in" accept=".json" style="display:none" onchange="importBackup(event)">
       </div>
       <button class="btn btn-success btn-sm perm-commande" onclick="sendEmailCommande()">📧 Envoyer par email</button>
@@ -1364,6 +1364,158 @@ function renderDash(){
     <div class="stat-card c-red"><div class="stat-label">Régimes sp.</div><div class="stat-value">${S.regimesSpeciaux.length}</div></div>`;
 }
 
+
+// ============================================================
+// EXPORT / IMPORT EXCEL — COMMANDE ABSENCES
+// ============================================================
+function exportCommandeExcel(){
+  const w=wk(), week=S.currentWeek, year=S.currentYear;
+  const wb=XLSX.utils.book_new();
+
+  // En-tête
+  const joursFull=['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
+  const header=['ID','Nom','Lieu Midi','Lieu Soir','Régime'];
+  joursFull.forEach(j=>{header.push(j+' Midi'); header.push(j+' Soir')});
+  // Dates dans une 2ème ligne
+  const dates=['','','','',''];
+  for(let d=0;d<7;d++){
+    const date=getDateForDay(week,d);
+    const dateStr=date.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'});
+    dates.push(dateStr); dates.push(dateStr);
+  }
+
+  const rows=[header, dates];
+
+  // Résidents
+  S.residents.sort((a,b)=>a.nom.localeCompare(b.nom)).forEach(r=>{
+    const lm=getLieu(S.affectations[r.id]?.midi);
+    const ls=getLieu(S.affectations[r.id]?.soir);
+    const abs=S.absences[w]?.[r.id]||Array(14).fill(false);
+    const pn=S.piquenique[w]||{};
+    const row=[r.id, r.nom, lm?.nom||'', ls?.nom||'', r.regime+(r.special?' + '+r.special:'')];
+    for(let d=0;d<7;d++){
+      const ms=d*2, ss=d*2+1;
+      const mVal=abs[ms]?'ABS': pn[`${r.id}_${d}_midi`]?'PN':'OK';
+      const sVal=abs[ss]?'ABS': pn[`${r.id}_${d}_soir`]?'PN':'OK';
+      row.push(mVal); row.push(sVal);
+    }
+    rows.push(row);
+  });
+
+  // Temporaires actifs
+  const temposActifs=(S.temporaires||[]).filter(t=>isTempoActive(t,week,year));
+  if(temposActifs.length){
+    rows.push([]); // ligne vide séparatrice
+    rows.push(['--- ACCUEIL TEMPORAIRE ---']);
+    temposActifs.forEach(t=>{
+      const lm=getLieu(t.lieuMidi);
+      const ls=getLieu(t.lieuSoir);
+      const abs=S.absences[w]?.[t.id]||Array(14).fill(false);
+      const pn=S.piquenique[w]||{};
+      const row=[t.id, t.nom+' (AT)', lm?.nom||'', ls?.nom||'', t.regime+(t.special?' + '+t.special:'')];
+      for(let d=0;d<7;d++){
+        const ms=d*2, ss=d*2+1;
+        const hab=t.habitudes;
+        const mHab=!hab||hab[ms]!==false;
+        const sHab=!hab||hab[ss]!==false;
+        const mVal=!mHab?'—': abs[ms]?'ABS': pn[`${t.id}_${d}_midi`]?'PN':'OK';
+        const sVal=!sHab?'—': abs[ss]?'ABS': pn[`${t.id}_${d}_soir`]?'PN':'OK';
+        row.push(mVal); row.push(sVal);
+      }
+      rows.push(row);
+    });
+  }
+
+  const ws=XLSX.utils.aoa_to_sheet(rows);
+
+  // Largeurs colonnes
+  ws['!cols']=[{wch:14},{wch:28},{wch:16},{wch:16},{wch:18},
+    ...Array(14).fill({wch:7})];
+
+  // Couleurs cellules selon valeur (style de base)
+  // Ligne d'en-tête en gras
+  const range=XLSX.utils.decode_range(ws['!ref']);
+  for(let C=range.s.c;C<=range.e.c;C++){
+    const cell=ws[XLSX.utils.encode_cell({r:0,c:C})];
+    if(cell)cell.s={font:{bold:true},fill:{fgColor:{rgb:'1A56DB'}},font:{bold:true,color:{rgb:'FFFFFF'}}};
+  }
+
+  XLSX.utils.book_append_sheet(wb, ws, `S${week}-${year}`);
+  XLSX.writeFile(wb, `MSP_Commande_S${week}_${year}.xlsx`);
+  toast('Export Excel créé — modifiez et réimportez','success');
+  auditLog('COMMANDE_EXPORTEE_EXCEL',{semaine:w});
+}
+
+function importCommandeExcel(event){
+  if(!getPerms().canCommande){toast('Accès non autorisé','error');return}
+  const f=event.target.files[0];if(!f)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const data=new Uint8Array(e.target.result);
+      const wb=XLSX.read(data,{type:'array'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+
+      if(rows.length<3){toast('Fichier vide ou invalide','error');return}
+
+      // Ligne 0 = header, ligne 1 = dates, lignes 2+ = données
+      const w=wk();
+      if(!S.absences[w])S.absences[w]={};
+      if(!S.piquenique[w])S.piquenique[w]={};
+
+      let imported=0, skipped=0;
+      for(let i=2;i<rows.length;i++){
+        const row=rows[i];
+        if(!row||!row[0]||!row[1])continue; // ligne vide ou séparateur
+        if(String(row[0]).startsWith('---'))continue; // ligne titre AT
+
+        const pid=String(row[0]).trim();
+        // Vérifier que l'ID existe (résident ou temporaire)
+        const exists=S.residents.find(r=>r.id===pid)||(S.temporaires||[]).find(t=>t.id===pid);
+        if(!exists){skipped++;continue}
+
+        // Init slots
+        if(!S.absences[w][pid])S.absences[w][pid]=Array(14).fill(false);
+
+        for(let d=0;d<7;d++){
+          const mCol=5+d*2, sCol=6+d*2;
+          const mVal=String(row[mCol]||'').trim().toUpperCase();
+          const sVal=String(row[sCol]||'').trim().toUpperCase();
+          const ms=d*2, ss=d*2+1;
+          const mPk=`${pid}_${d}_midi`, sPk=`${pid}_${d}_soir`;
+
+          // Midi
+          if(mVal==='ABS'){S.absences[w][pid][ms]=true; delete S.piquenique[w][mPk]}
+          else if(mVal==='PN'){S.absences[w][pid][ms]=false; S.piquenique[w][mPk]=true}
+          else if(mVal==='OK'||mVal===''){S.absences[w][pid][ms]=false; delete S.piquenique[w][mPk]}
+          // Si '—' (AT non concerné) : ne rien changer
+
+          // Soir
+          if(sVal==='ABS'){S.absences[w][pid][ss]=true; delete S.piquenique[w][sPk]}
+          else if(sVal==='PN'){S.absences[w][pid][ss]=false; S.piquenique[w][sPk]=true}
+          else if(sVal==='OK'||sVal===''){S.absences[w][pid][ss]=false; delete S.piquenique[w][sPk]}
+        }
+        imported++;
+      }
+
+      save('absences');
+      // Sauvegarder piquenique aussi
+      clearTimeout(saveTimer);
+      saveTimer=setTimeout(()=>pushToSupabase('piquenique'),800);
+
+      renderCommande();
+      auditLog('COMMANDE_IMPORTEE_EXCEL',{semaine:w,lignes:imported});
+      toast(`Import réussi — ${imported} résidents mis à jour${skipped>0?' ('+skipped+' ignorés)':''}`, 'success');
+    }catch(err){
+      console.error('Import error:',err);
+      toast('Erreur import : '+err.message,'error');
+    }
+  };
+  reader.readAsArrayBuffer(f);
+  event.target.value=''; // reset input
+}
+
 // ============================================================
 // RENDER — COMMANDE / ABSENCES
 // ============================================================
@@ -1441,15 +1593,23 @@ function renderCommande(){
   $('cmd-table').innerHTML=h;
 }
 
-function resetWeek(){showConfirm('Réinitialiser les absences ?',`Semaine ${S.currentWeek}/${S.currentYear}`,async()=>{
-  const w=wk();
-  delete S.absences[w];delete S.piquenique[w];
-  if(db){
-    await db.from('absences').delete().eq('semaine',w);
-    await db.from('piquenique').delete().eq('semaine',w);
-  }
-  save('config');renderCommande();toast('Absences réinitialisées','success')
-})}
+function resetWeek(){
+  if(!currentUser||currentUser.role!=='superadmin'){toast('Réservé au Super Admin','error');return}
+  showConfirm(
+    '⚠️ Réinitialiser toutes les absences ?',
+    `ATTENTION — Toutes les absences de la semaine ${S.currentWeek}/${S.currentYear} seront supprimées définitivement.`,
+    async()=>{
+      const w=wk();
+      delete S.absences[w];delete S.piquenique[w];
+      if(db){
+        await db.from('absences').delete().eq('semaine',w);
+        await db.from('piquenique').delete().eq('semaine',w);
+      }
+      auditLog('SEMAINE_REINITIALISEE',{semaine:w});
+      save('config');renderCommande();toast('Absences réinitialisées','success');
+    }
+  )
+}
 
 // ============================================================
 // RENDER — TOTAUX (Cuisine Centrale)
@@ -2152,30 +2312,203 @@ function renderMEPLieu(lieu){
   }
   S.groupes.filter(g=>g.lieuId===lieu.id).forEach(g=>{const k='Normal|';if(!svc2.regimes.has(k))svc2.regimes.set(k,{regime:'Normal',special:'',midi:Array(7).fill(0),soir:Array(7).fill(0)});const nr=svc2.regimes.get(k);for(let i=0;i<7;i++){nr.midi[i]+=(g.vals?.[i]||0);nr.soir[i]+=(g.valsSoir?.[i]||0)}});
   
-  const renderST=(sd,name)=>{
-    let h=`<table style="min-width:900px"><thead><tr><th style="min-width:140px">RÉGIME</th>`;
-    DAYS_S.forEach((d,i)=>h+=`<th colspan="2" style="text-align:center;color:${DAY_C[i]}">${d}<div style="display:flex;justify-content:space-around;font-size:8px;margin-top:2px"><span>M</span><span>S</span></div></th>`);
-    h+=`<th style="text-align:center">TOTAL</th></tr></thead><tbody>`;
+  // Vérifie si un service a des données réelles
+  const hasData=(sd)=>{
+    let tot=0;
+    [...sd.regimes.values()].forEach(d=>{tot+=d.midi.reduce((a,b)=>a+b,0)+d.soir.reduce((a,b)=>a+b,0)});
+    sd.adaptations.forEach(a=>{tot+=a.midi.reduce((a,b)=>a+b,0)+a.soir.reduce((a,b)=>a+b,0)});
+    if(sd.pn)[...sd.pn.values()].forEach(d=>{tot+=d.midi.reduce((a,b)=>a+b,0)+d.soir.reduce((a,b)=>a+b,0)});
+    return tot>0;
+  };
+
+  const renderST=(sd,name,icon)=>{
+    // Colonnes alternées M (clair) / S (légèrement coloré)
+    let h=`<table style="min-width:900px;border-collapse:collapse"><thead>`;
+    // Ligne 1 : jours
+    h+=`<tr><th style="min-width:160px;padding:6px 10px;text-align:left;background:var(--bg);border-bottom:2px solid var(--border)">RÉGIME</th>`;
+    DAYS_S.forEach((d,i)=>h+=`<th colspan="2" style="text-align:center;color:${DAY_C[i]};background:var(--bg);padding:5px 0;font-size:12px;font-weight:800;border-bottom:1px solid ${DAY_C[i]}40">${d}</th>`);
+    h+=`<th style="text-align:center;background:var(--blue-bg);color:var(--blue);padding:6px;font-size:11px;border-bottom:2px solid var(--blue)">TOT</th></tr>`;
+    // Ligne 2 : M / S alternés avec fond différent
+    h+=`<tr><th style="padding:3px 10px;background:var(--bg);border-bottom:2px solid var(--border)"></th>`;
+    DAYS_S.forEach((_,i)=>{
+      h+=`<th style="text-align:center;font-size:9px;font-weight:700;color:#fff;background:${DAY_C[i]};padding:3px 0;width:36px">M</th>`;
+      h+=`<th style="text-align:center;font-size:9px;font-weight:700;color:${DAY_C[i]};background:${DAY_C[i]}20;padding:3px 0;width:36px;border-bottom:2px solid var(--border)">S</th>`;
+    });
+    h+=`<th style="background:var(--blue-bg);border-bottom:2px solid var(--border)"></th></tr>`;
+    h+=`</thead><tbody>`;
+
     const entries=[...sd.regimes.entries()].sort((a,b)=>a[0].localeCompare(b[0]));
     const tM=Array(7).fill(0),tS=Array(7).fill(0);
+
     entries.forEach(([k,d])=>{
-      const tex=getTex(d.regime),tot=d.midi.reduce((a,b)=>a+b,0)+d.soir.reduce((a,b)=>a+b,0);
-      h+=`<tr><td><span class="badge" style="background:${tex?.color||'#3b82f6'}15;color:${tex?.color||'#3b82f6'}">${d.regime}</span>${d.special?` <span class="badge" style="background:var(--amber-bg);color:var(--amber)">${d.special}</span>`:''}</td>`;
-      for(let i=0;i<7;i++){h+=`<td style="text-align:center;font-weight:600">${d.midi[i]||'—'}</td><td style="text-align:center;font-weight:600">${d.soir[i]||'—'}</td>`;tM[i]+=d.midi[i];tS[i]+=d.soir[i]}
-      h+=`<td style="text-align:center;font-weight:700;color:var(--blue)">${tot}</td></tr>`;
+      const mTot=d.midi.reduce((a,b)=>a+b,0);
+      const sTot=d.soir.reduce((a,b)=>a+b,0);
+      // Cacher les lignes entièrement vides
+      if(mTot+sTot===0)return;
+      const tex=getTex(d.regime),tot=mTot+sTot;
+      h+=`<tr style="border-bottom:1px solid var(--border)">`;
+      h+=`<td style="padding:5px 10px"><span class="badge" style="background:${tex?.color||'#3b82f6'}15;color:${tex?.color||'#3b82f6'};font-size:11px">${d.regime}</span>${d.special?` <span class="badge" style="background:var(--amber-bg);color:var(--amber);font-size:10px">${d.special}</span>`:''}</td>`;
+      for(let i=0;i<7;i++){
+        const mv=d.midi[i]||0, sv=d.soir[i]||0;
+        h+=`<td style="text-align:center;font-weight:700;padding:5px 2px;background:${DAY_C[i]}08;font-size:13px">${mv||'—'}</td>`;
+        h+=`<td style="text-align:center;font-weight:600;padding:5px 2px;background:${DAY_C[i]}15;font-size:13px;color:var(--txt2)">${sv||'—'}</td>`;
+        tM[i]+=mv;tS[i]+=sv;
+      }
+      h+=`<td style="text-align:center;font-weight:800;color:var(--blue);background:var(--blue-bg);padding:5px 6px">${tot}</td></tr>`;
     });
-    sd.adaptations.forEach(a=>{const tot=a.midi.reduce((x,y)=>x+y,0)+a.soir.reduce((x,y)=>x+y,0);h+=`<tr style="border-left:3px solid var(--amber)"><td><strong>${a.nom}</strong><div style="font-size:10px;color:var(--amber)">⚠ ${a.adapt}</div></td>`;for(let i=0;i<7;i++){h+=`<td style="text-align:center;font-weight:600;color:var(--amber)">${a.midi[i]||'—'}</td><td style="text-align:center;font-weight:600;color:var(--amber)">${a.soir[i]||'—'}</td>`;tM[i]+=a.midi[i];tS[i]+=a.soir[i]}h+=`<td style="text-align:center;font-weight:700;color:var(--amber)">${tot}</td></tr>`});
-    if(sd.pn){[...sd.pn.entries()].forEach(([k,d])=>{const tot=d.midi.reduce((a,b)=>a+b,0)+d.soir.reduce((a,b)=>a+b,0);if(!tot)return;h+=`<tr style="background:var(--amber-bg)"><td><span class="badge" style="background:var(--amber-bg);color:var(--amber)">PN ${d.regime}</span></td>`;for(let i=0;i<7;i++){h+=`<td style="text-align:center;font-weight:600;color:var(--amber)">${d.midi[i]||'—'}</td><td style="text-align:center;font-weight:600;color:var(--amber)">${d.soir[i]||'—'}</td>`;tM[i]+=d.midi[i];tS[i]+=d.soir[i]}h+=`<td style="text-align:center;font-weight:700;color:var(--amber)">${tot}</td></tr>`})}
+
+    // Adaptations
+    sd.adaptations.forEach(a=>{
+      const tot=a.midi.reduce((x,y)=>x+y,0)+a.soir.reduce((x,y)=>x+y,0);
+      if(!tot)return;
+      h+=`<tr style="border-left:3px solid var(--amber);border-bottom:1px solid var(--border)">`;
+      h+=`<td style="padding:5px 10px"><strong style="font-size:12px">${a.nom}</strong><div style="font-size:10px;color:var(--amber)">⚠ ${a.adapt}</div></td>`;
+      for(let i=0;i<7;i++){
+        h+=`<td style="text-align:center;font-weight:700;color:var(--amber);background:${DAY_C[i]}08;padding:5px 2px">${a.midi[i]||'—'}</td>`;
+        h+=`<td style="text-align:center;font-weight:600;color:var(--amber);background:${DAY_C[i]}15;padding:5px 2px">${a.soir[i]||'—'}</td>`;
+        tM[i]+=a.midi[i];tS[i]+=a.soir[i];
+      }
+      h+=`<td style="text-align:center;font-weight:800;color:var(--amber);background:var(--amber-bg);padding:5px 6px">${tot}</td></tr>`;
+    });
+
+    // Pique-nique
+    if(sd.pn){
+      [...sd.pn.entries()].forEach(([k,d])=>{
+        const tot=d.midi.reduce((a,b)=>a+b,0)+d.soir.reduce((a,b)=>a+b,0);
+        if(!tot)return;
+        h+=`<tr style="background:var(--amber-bg);border-bottom:1px solid var(--border)">`;
+        h+=`<td style="padding:5px 10px"><span class="badge" style="background:var(--amber-bg);color:var(--amber)">🧺 PN ${d.regime}</span></td>`;
+        for(let i=0;i<7;i++){
+          h+=`<td style="text-align:center;font-weight:700;color:var(--amber);padding:5px 2px">${d.midi[i]||'—'}</td>`;
+          h+=`<td style="text-align:center;font-weight:600;color:var(--amber);padding:5px 2px">${d.soir[i]||'—'}</td>`;
+          tM[i]+=d.midi[i];tS[i]+=d.soir[i];
+        }
+        h+=`<td style="text-align:center;font-weight:800;color:var(--amber);padding:5px 6px">${tot}</td></tr>`;
+      });
+    }
+
+    // Ligne total
     const gt=tM.reduce((a,b)=>a+b,0)+tS.reduce((a,b)=>a+b,0);
-    h+=`<tr style="background:var(--bg);font-weight:700;border-top:2px solid var(--border)"><td>TOTAL ${name}</td>`;
-    for(let i=0;i<7;i++)h+=`<td style="text-align:center;color:${DAY_C[i]}">${tM[i]}</td><td style="text-align:center;color:${DAY_C[i]}">${tS[i]}</td>`;
-    h+=`<td style="text-align:center;font-size:15px;color:var(--green)">${gt}</td></tr></tbody></table>`;return h;
+    h+=`<tr style="background:var(--bg);font-weight:700;border-top:2px solid var(--border)">`;
+    h+=`<td style="padding:6px 10px;font-size:12px;font-weight:800">TOTAL ${name}</td>`;
+    for(let i=0;i<7;i++){
+      h+=`<td style="text-align:center;color:${DAY_C[i]};font-weight:800;background:${DAY_C[i]}08;padding:6px 2px">${tM[i]||'—'}</td>`;
+      h+=`<td style="text-align:center;color:${DAY_C[i]};font-weight:700;background:${DAY_C[i]}15;padding:6px 2px">${tS[i]||'—'}</td>`;
+    }
+    h+=`<td style="text-align:center;font-size:15px;font-weight:800;color:var(--green);background:var(--green-bg);padding:6px">${gt}</td></tr>`;
+    h+=`</tbody></table>`;
+    return h;
   };
-  
-  return`<div class="table-box" style="margin-bottom:20px"><div class="table-top" style="border-bottom:2px solid ${lieu.color}"><h2 style="color:${lieu.color}">${lieu.nom}</h2></div><h3 style="padding:14px 20px 8px;font-size:14px">🕐 1er Service</h3>${renderST(svc1,'1er')}<h3 style="padding:14px 20px 8px;font-size:14px">🕑 2ème Service</h3>${renderST(svc2,'2ème')}</div>`;
+
+  // Construire le HTML du lieu en cachant les services vides
+  const h1=hasData(svc1), h2=hasData(svc2);
+  let body='';
+  if(h1) body+=`<div style="padding:10px 20px 4px;font-size:13px;font-weight:700;color:var(--txt2)">🕐 1er Service</div>${renderST(svc1,'1er')}`;
+  if(h2) body+=`<div style="padding:10px 20px 4px;font-size:13px;font-weight:700;color:var(--txt2)">🕑 2ème Service</div>${renderST(svc2,'2ème')}`;
+  if(!h1&&!h2) body='<div class="empty-state" style="padding:20px">Aucun repas ce service</div>';
+
+  return`<div class="table-box" style="margin-bottom:20px;overflow:hidden"><div class="table-top" style="border-bottom:2px solid ${lieu.color};padding:12px 20px"><h2 style="color:${lieu.color};font-size:16px">${lieu.nom}</h2></div>${body}</div>`;
 }
 
-function printMEP(){const pw=window.open('','_blank');pw.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>MEP S${S.currentWeek}</title><style>@page{margin:10mm;size:A4 landscape}body{font-family:Arial,sans-serif;font-size:10px}h1{text-align:center;font-size:18px;margin-bottom:20px}table{width:100%;border-collapse:collapse;margin-bottom:15px}th,td{border:1px solid #000;padding:3px;text-align:center}th{background:#e0e0e0}</style></head><body><h1>MISE EN PLATS — Semaine ${S.currentWeek}</h1>${$('mep-content').innerHTML}</body></html>`);pw.document.close();pw.print()}
+function printMEP(){
+  const week=S.currentWeek,year=S.currentYear;
+  const mon=getDateForDay(week,0),sun=getDateForDay(week,6);
+  const DAY_COLORS=['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#06b6d4'];
+
+  // Reconstruire les données proprement pour l'impression
+  const sites={};
+  S.lieux.forEach(l=>{if(!l.section)return;if(!sites[l.section])sites[l.section]=[];sites[l.section].push(l)});
+
+  let body=`<h1>MISE EN PLATS — Semaine ${week} / ${year}</h1>
+<p style="text-align:center;font-size:9px;color:#666;margin-bottom:12px">Du ${fmtDate(mon.toISOString())} au ${fmtDate(sun.toISOString())} — Maison Saint-Paul</p>`;
+
+  Object.keys(sites).sort().forEach(siteName=>{
+    body+=`<div class="site-title">${siteName}</div>`;
+    sites[siteName].forEach(lieu=>{
+      // Recalculer svc1/svc2 comme dans renderMEPLieu
+      const w=wk();
+      const svc1={regimes:new Map(),adaptations:[]},svc2={regimes:new Map(),adaptations:[],pn:new Map()};
+      const addP=(p,di,meal,sn)=>{const tgt=sn===1?svc1:svc2;if(p.adapt){let a=tgt.adaptations.find(x=>x.nom===p.nom);if(!a){a={nom:p.nom,adapt:p.adapt,regime:p.regime,midi:Array(7).fill(0),soir:Array(7).fill(0)};tgt.adaptations.push(a)}a[meal][di]++}else{const k=`${p.regime}|${p.special||''}`;if(!tgt.regimes.has(k))tgt.regimes.set(k,{regime:p.regime,special:p.special||'',midi:Array(7).fill(0),soir:Array(7).fill(0)});tgt.regimes.get(k)[meal][di]++}};
+      const addPN=(p,di,meal)=>{const k=`${p.regime}|${p.special||''}`;if(!svc2.pn.has(k))svc2.pn.set(k,{regime:p.regime,special:p.special||'',midi:Array(7).fill(0),soir:Array(7).fill(0)});svc2.pn.get(k)[meal][di]++};
+      for(let di=0;di<7;di++){
+        S.residents.filter(r=>S.affectations[r.id]?.midi===lieu.id).forEach(p=>{const abs=S.absences[w]?.[p.id]||[];if(!abs[di*2]){const pk=`${p.id}_${di}_midi`;if(S.piquenique[w]?.[pk])addPN(p,di,'midi');else addP(p,di,'midi',p.serviceMidi||1)}});
+        S.residents.filter(r=>S.affectations[r.id]?.soir===lieu.id).forEach(p=>{const abs=S.absences[w]?.[p.id]||[];if(!abs[di*2+1]){const pk=`${p.id}_${di}_soir`;if(S.piquenique[w]?.[pk])addPN(p,di,'soir');else addP(p,di,'soir',p.serviceSoir||1)}});
+        (S.temporaires||[]).filter(t=>isTempoActive(t,week,year)).forEach(t=>{
+          if(t.lieuMidi===lieu.id&&(!t.habitudes||t.habitudes[di*2]!==false)){const pk=`${t.id}_${di}_midi`;if(S.piquenique[w]?.[pk])addPN(t,di,'midi');else addP(t,di,'midi',t.serviceMidi||1)}
+          if(t.lieuSoir===lieu.id&&(!t.habitudes||t.habitudes[di*2+1]!==false)){const pk=`${t.id}_${di}_soir`;if(S.piquenique[w]?.[pk])addPN(t,di,'soir');else addP(t,di,'soir',t.serviceSoir||1)}
+        });
+      }
+      S.groupes.filter(g=>g.lieuId===lieu.id).forEach(g=>{const k='Normal|';if(!svc2.regimes.has(k))svc2.regimes.set(k,{regime:'Normal',special:'',midi:Array(7).fill(0),soir:Array(7).fill(0)});const nr=svc2.regimes.get(k);for(let i=0;i<7;i++){nr.midi[i]+=(g.vals?.[i]||0);nr.soir[i]+=(g.valsSoir?.[i]||0)}});
+
+      const hasD=(sd)=>{let t=0;[...sd.regimes.values()].forEach(d=>{t+=d.midi.reduce((a,b)=>a+b,0)+d.soir.reduce((a,b)=>a+b,0)});sd.adaptations.forEach(a=>{t+=a.midi.reduce((a,b)=>a+b,0)+a.soir.reduce((a,b)=>a+b,0)});if(sd.pn)[...sd.pn.values()].forEach(d=>{t+=d.midi.reduce((a,b)=>a+b,0)+d.soir.reduce((a,b)=>a+b,0)});return t>0};
+      if(!hasD(svc1)&&!hasD(svc2))return;
+
+      const mkTable=(sd,svcName)=>{
+        if(!hasD(sd))return'';
+        const entries=[...sd.regimes.entries()].sort((a,b)=>a[0].localeCompare(b[0])).filter(([k,d])=>d.midi.reduce((a,b)=>a+b,0)+d.soir.reduce((a,b)=>a+b,0)>0);
+        if(!entries.length&&!sd.adaptations.length)return'';
+        const tM=Array(7).fill(0),tS=Array(7).fill(0);
+        let t=`<div class="svc-title">${svcName}</div><table><thead><tr><th class="regime-col">RÉGIME</th>`;
+        DAYS_S.forEach((d,i)=>t+=`<th colspan="2" style="color:${DAY_COLORS[i]}">${d}</th>`);
+        t+=`<th class="tot-col">TOT</th></tr><tr><th></th>`;
+        DAYS_S.forEach((_,i)=>t+=`<th class="m-col" style="background:${DAY_COLORS[i]};color:#fff">M</th><th class="s-col" style="background:${DAY_COLORS[i]}33;color:${DAY_COLORS[i]}">S</th>`);
+        t+=`<th></th></tr></thead><tbody>`;
+        entries.forEach(([k,d])=>{
+          const tot=d.midi.reduce((a,b)=>a+b,0)+d.soir.reduce((a,b)=>a+b,0);
+          t+=`<tr><td class="regime-col">${d.regime}${d.special?' + '+d.special:''}</td>`;
+          for(let i=0;i<7;i++){t+=`<td class="m-cell" style="background:${DAY_COLORS[i]}10">${d.midi[i]||'—'}</td><td class="s-cell" style="background:${DAY_COLORS[i]}25">${d.soir[i]||'—'}</td>`;tM[i]+=d.midi[i];tS[i]+=d.soir[i]}
+          t+=`<td class="tot-cell">${tot}</td></tr>`;
+        });
+        sd.adaptations.filter(a=>a.midi.reduce((x,y)=>x+y,0)+a.soir.reduce((x,y)=>x+y,0)>0).forEach(a=>{
+          const tot=a.midi.reduce((x,y)=>x+y,0)+a.soir.reduce((x,y)=>x+y,0);
+          t+=`<tr class="adapt-row"><td class="regime-col">⚠ ${a.nom} (${a.adapt})</td>`;
+          for(let i=0;i<7;i++){t+=`<td class="m-cell">${a.midi[i]||'—'}</td><td class="s-cell">${a.soir[i]||'—'}</td>`;tM[i]+=a.midi[i];tS[i]+=a.soir[i]}
+          t+=`<td class="tot-cell">${tot}</td></tr>`;
+        });
+        if(sd.pn)[...sd.pn.entries()].forEach(([k,d])=>{const tot=d.midi.reduce((a,b)=>a+b,0)+d.soir.reduce((a,b)=>a+b,0);if(!tot)return;t+=`<tr class="pn-row"><td class="regime-col">🧺 PN ${d.regime}</td>`;for(let i=0;i<7;i++){t+=`<td class="m-cell">${d.midi[i]||'—'}</td><td class="s-cell">${d.soir[i]||'—'}</td>`;tM[i]+=d.midi[i];tS[i]+=d.soir[i]}t+=`<td class="tot-cell">${tot}</td></tr>`});
+        const gt=tM.reduce((a,b)=>a+b,0)+tS.reduce((a,b)=>a+b,0);
+        t+=`<tr class="total-row"><td>TOTAL</td>`;
+        for(let i=0;i<7;i++)t+=`<td style="color:${DAY_COLORS[i]}">${tM[i]||'—'}</td><td style="color:${DAY_COLORS[i]}">${tS[i]||'—'}</td>`;
+        t+=`<td class="tot-cell grand-tot">${gt}</td></tr></tbody></table>`;
+        return t;
+      };
+
+      body+=`<div class="lieu-block" style="border-left:3px solid ${lieu.color}">`;
+      body+=`<div class="lieu-title" style="color:${lieu.color}">${lieu.nom}</div>`;
+      body+=mkTable(svc1,'🕐 1er Service');
+      body+=mkTable(svc2,'🕑 2ème Service');
+      body+=`</div>`;
+    });
+  });
+
+  const css=`
+    @page{margin:8mm;size:A4 portrait}
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:Arial,sans-serif;font-size:7.5px;color:#111}
+    h1{text-align:center;font-size:13px;font-weight:800;margin-bottom:2px}
+    .site-title{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#666;border-bottom:1px solid #ccc;margin:8px 0 4px;padding-bottom:2px}
+    .lieu-block{margin-bottom:8px;padding-left:6px}
+    .lieu-title{font-size:9px;font-weight:700;margin-bottom:3px}
+    .svc-title{font-size:7.5px;font-weight:700;color:#555;margin:3px 0 2px}
+    table{width:100%;border-collapse:collapse;margin-bottom:4px}
+    th,td{border:1px solid #ddd;padding:2px 3px;text-align:center}
+    th{font-size:7px;font-weight:700}
+    .regime-col{text-align:left;min-width:90px;font-weight:600}
+    .m-col,.s-col{width:18px;font-size:6px}
+    .m-cell{font-weight:700}
+    .s-cell{color:#555}
+    .tot-col,.tot-cell{background:#e8f4fd;color:#1a56db;font-weight:800;min-width:24px}
+    .adapt-row td{color:#d97706;font-style:italic}
+    .pn-row td{background:#fffbeb;color:#d97706}
+    .total-row td{background:#f3f4f6;font-weight:800;border-top:2px solid #999}
+    .grand-tot{background:#1a56db;color:#fff !important}
+  `;
+
+  const pw=window.open('','_blank');
+  pw.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>MEP S${week}</title><style>${css}</style></head><body>${body}</body></html>`);
+  pw.document.close();
+  pw.print();
+}
 
 // ============================================================
 // RENDER — HISTORIQUE BONS
@@ -2462,7 +2795,17 @@ function onLoginSuccess(){
   setSave('saved','☁️ En ligne');
   initReportingSelectors();
   renderDash();
-  setTimeout(applyUIPermissions,200);
+  setTimeout(()=>{
+    applyUIPermissions();
+    // Activer le bouton reset seulement pour superadmin
+    const br=$('btn-reset-week');
+    if(br&&currentUser.role==='superadmin'){
+      br.disabled=false;
+      br.style.opacity='1';
+      br.style.cursor='pointer';
+      br.title='Réinitialiser les absences de la semaine';
+    }
+  },200);
   toast(`Bonjour ${currentUser.nom} 👋`,'success');
 }
 
