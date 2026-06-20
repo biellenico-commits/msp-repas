@@ -512,7 +512,7 @@ tr:hover td{background:rgba(0,0,0,.015)}
   </div>
   <div style="display:flex;gap:8px;margin-bottom:12px">
     <button class="filter-btn active" id="res-status-active" onclick="filterResStatus('active')">✅ Actifs</button>
-    <button class="filter-btn" id="res-status-archived" onclick="filterResStatus('archived')">🚪 Archivés (partis)</button>
+    <button class="filter-btn" id="res-status-archived" onclick="filterResStatus('archived')">🚪 Archivés / À venir</button>
   </div>
   <div class="filter-bar" id="res-filters"></div>
   <div class="table-box">
@@ -792,8 +792,17 @@ tr:hover td{background:rgba(0,0,0,.015)}
         <div class="form-group"><label>Portions</label><input type="number" id="r-por" min="0" max="10" step="0.5" value="1"></div>
         <div class="form-group"><label>⚠ Adaptation</label><input type="text" id="r-ada"></div>
         <div class="form-group full" style="border-top:1px solid var(--border);padding-top:14px;margin-top:6px">
-          <label>🚪 Date de départ définitif <span style="font-weight:400;font-size:10px;color:var(--txt3);text-transform:none;letter-spacing:0">(changement de structure, décès, etc. — laisser vide si présent)</span></label>
-          <input type="date" id="r-depart">
+          <label>🚪 Date d'arrivée / de départ <span style="font-weight:400;font-size:10px;color:var(--txt3);text-transform:none;letter-spacing:0">(laisser vide si non concerné)</span></label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:6px">
+            <div>
+              <label style="font-size:11px;color:var(--txt3);font-weight:500;text-transform:none;letter-spacing:0;margin-bottom:4px;display:block">Arrivée</label>
+              <input type="date" id="r-arrivee">
+            </div>
+            <div>
+              <label style="font-size:11px;color:var(--txt3);font-weight:500;text-transform:none;letter-spacing:0;margin-bottom:4px;display:block">Départ définitif (changement de structure, décès, etc.)</label>
+              <input type="date" id="r-depart">
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -1053,15 +1062,24 @@ function isPlannedAbs(rid,dayIdx,svc){
 // Vérifie si une personne est absente à un jour/service donné de la semaine COURANTE (S.currentWeek),
 // en combinant : absence cochée manuellement (S.absences) + absence planifiée (congés/hospit.)
 // dayIdx : 0=Lundi ... 6=Dimanche (relatif à S.currentWeek)
-// Vérifie si un résident est encore actif (présent) à la date donnée (par défaut : aujourd'hui).
-// Un résident avec une date de départ définitif passée n'est plus actif.
+// Vérifie si un résident est actif (présent) à la date donnée (par défaut : aujourd'hui).
+// - Avant sa date d'arrivée : pas encore actif.
+// - Après sa date de départ définitif : plus actif.
+// - Actif dès le jour exact de l'arrivée, jusqu'au jour exact du départ inclus.
 function isResidentActive(r, atDate){
-  if(!r.dateDepart)return true;
   const ref=atDate?new Date(atDate):new Date();
   ref.setHours(0,0,0,0);
-  const dep=new Date(r.dateDepart);
-  dep.setHours(0,0,0,0);
-  return ref<=dep; // reste actif JUSQU'À la date de départ incluse
+  if(r.dateArrivee){
+    const arr=new Date(r.dateArrivee);
+    arr.setHours(0,0,0,0);
+    if(ref<arr)return false; // pas encore arrivé
+  }
+  if(r.dateDepart){
+    const dep=new Date(r.dateDepart);
+    dep.setHours(0,0,0,0);
+    if(ref>dep)return false; // déjà parti
+  }
+  return true;
 }
 
 function isAbsentSlot(pid, dayIdx, svc){
@@ -1245,7 +1263,7 @@ async function loadFromSupabase(){
     if(res){
       S.residents=res.map(r=>({
         id:r.id,nom:r.nom,regime:r.regime||'Normal',special:r.special||'',
-        portions:r.portions||1,adapt:r.adapt||'',dateDepart:r.date_depart||''
+        portions:r.portions||1,adapt:r.adapt||'',dateArrivee:r.date_arrivee||'',dateDepart:r.date_depart||''
       }));
       // Affectations
       res.forEach(r=>{S.affectations[r.id]={midi:r.lieu_midi||'',soir:r.lieu_soir||''}});
@@ -1418,6 +1436,7 @@ async function pushToSupabase(section='all'){
           portions:r.portions,adapt:r.adapt,
           lieu_midi:S.affectations[r.id]?.midi||null,
           lieu_soir:S.affectations[r.id]?.soir||null,
+          date_arrivee:r.dateArrivee||null,
           date_depart:r.dateDepart||null
         }));
         await db.from('residents').upsert(rows,{onConflict:'id'});
@@ -2698,11 +2717,18 @@ function renderResidents(){
   $('res-count').textContent=res.length;
   
   let h=`<table><thead><tr><th>Nom</th><th>Lieu Midi</th><th>Lieu Soir</th><th>Régime</th><th style="text-align:right">Actions</th></tr></thead><tbody>`;
-  if(!res.length)h+=`<tr><td colspan="5" class="empty-state">${resStatusFilter==='active'?'Aucun résident actif':'Aucun résident archivé'}</td></tr>`;
+  if(!res.length)h+=`<tr><td colspan="5" class="empty-state">${resStatusFilter==='active'?'Aucun résident actif':'Aucun résident archivé ou à venir'}</td></tr>`;
   res.forEach(r=>{
     const lm=getLieu(S.affectations[r.id]?.midi),ls=getLieu(S.affectations[r.id]?.soir),tex=getTex(r.regime),sp=r.special?getReg(r.special):null;
-    const departBadge=r.dateDepart?` <span class="badge" style="background:var(--red-bg);color:var(--red);font-size:10px">🚪 Parti le ${new Date(r.dateDepart).toLocaleDateString('fr-FR')}</span>`:'';
-    h+=`<tr><td style="font-weight:600">${r.nom}${r.adapt?` <span style="color:var(--amber);font-size:11px">⚠ ${r.adapt}</span>`:''}${departBadge}</td>`;
+    const today=new Date();today.setHours(0,0,0,0);
+    const notYetArrived=r.dateArrivee&&new Date(r.dateArrivee)>today;
+    let statusBadge='';
+    if(r.dateDepart&&!notYetArrived){
+      statusBadge=` <span class="badge" style="background:var(--red-bg);color:var(--red);font-size:10px">🚪 Parti le ${new Date(r.dateDepart).toLocaleDateString('fr-FR')}</span>`;
+    } else if(notYetArrived){
+      statusBadge=` <span class="badge" style="background:var(--blue-bg);color:var(--blue);font-size:10px">📅 Arrive le ${new Date(r.dateArrivee).toLocaleDateString('fr-FR')}</span>`;
+    }
+    h+=`<tr><td style="font-weight:600">${r.nom}${r.adapt?` <span style="color:var(--amber);font-size:11px">⚠ ${r.adapt}</span>`:''}${statusBadge}</td>`;
     h+=`<td>${lm?`<span class="badge" style="background:${lm.color}15;color:${lm.color}">${lm.nom}</span>`:'—'}</td>`;
     h+=`<td>${ls?`<span class="badge" style="background:${ls.color}15;color:${ls.color}">${ls.nom}</span>`:'—'}</td>`;
     h+=`<td><span class="badge" style="background:${tex?.color||'#3b82f6'}15;color:${tex?.color||'#3b82f6'}">${r.regime}</span>${sp?` <span class="badge" style="background:${sp.color}15;color:${sp.color}">${r.special}</span>`:''}</td>`;
@@ -2721,10 +2747,12 @@ function openResidentModal(id){
     $('mrt').textContent='Modifier résident';$('r-id').value=id;$('r-nom').value=r.nom;
     $('r-lm').value=a.midi||'';$('r-ls').value=a.soir||'';
     $('r-reg').value=r.regime;$('r-spe').value=r.special||'';$('r-por').value=r.portions||1;$('r-ada').value=r.adapt||'';
+    $('r-arrivee').value=r.dateArrivee||'';
     $('r-depart').value=r.dateDepart||'';
   }else{
     $('mrt').textContent='Nouveau résident';$('r-id').value='';$('r-nom').value='';$('r-lm').value='';$('r-ls').value='';
     $('r-reg').value=S.textures[0]?.nom||'Normal';$('r-spe').value='';$('r-por').value=1;$('r-ada').value='';
+    $('r-arrivee').value='';
     $('r-depart').value='';
   }
   openModal('modal-resident');
@@ -2733,8 +2761,10 @@ function openResidentModal(id){
 function saveResident(){
   if(!getPerms().canEdit){toast('Accès non autorisé','error');return}
   const nom=$('r-nom').value.trim();if(!nom){toast('Le nom est requis','error');return}
+  const dateArrivee=$('r-arrivee').value||'';
   const dateDepart=$('r-depart').value||'';
-  const data={nom,regime:$('r-reg').value,special:$('r-spe').value,portions:parseFloat($('r-por').value)||1,adapt:$('r-ada').value.trim(),dateDepart};
+  if(dateArrivee&&dateDepart&&dateArrivee>dateDepart){toast('La date d\'arrivée doit être avant la date de départ','error');return}
+  const data={nom,regime:$('r-reg').value,special:$('r-spe').value,portions:parseFloat($('r-por').value)||1,adapt:$('r-ada').value.trim(),dateArrivee,dateDepart};
   const aff={midi:$('r-lm').value,soir:$('r-ls').value};
   const eid=$('r-id').value;
   let wasDepartureSet=false;
