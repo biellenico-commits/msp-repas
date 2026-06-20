@@ -157,6 +157,7 @@ tr:hover td{background:rgba(0,0,0,.015)}
 .repas-ok:hover{background:#d1fae5}
 .repas-abs{background:var(--red-bg);color:var(--red);border-color:var(--red-border)}
 .repas-pn{background:var(--amber-bg);color:var(--amber);border-color:var(--amber-border)}
+.repas-deloc{background:var(--teal-bg,#e0f7f5);color:var(--teal,#0d9488);border-color:var(--teal,#0d9488);font-weight:700}
 
 /* === SEARCH === */
 .search-input{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:7px 12px 7px 34px;color:var(--txt);font-size:13px;outline:none;font-family:inherit;width:220px;transition:border-color .2s;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%239ca3af' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:10px center;background-size:16px}
@@ -381,6 +382,7 @@ tr:hover td{background:rgba(0,0,0,.015)}
       <select id="yearSel" onchange="changeYear(+this.value)"></select>
       <select id="weekSel" onchange="changeWeek(+this.value)"></select>
     </div>
+    <div id="week-dates" style="font-size:11px;color:var(--txt3);margin-top:6px;text-align:center"></div>
   </div>
   <nav class="nav">
     <div class="nav-label">Gestion</div>
@@ -429,6 +431,7 @@ tr:hover td{background:rgba(0,0,0,.015)}
   <div class="page-header">
     <div><h1>Commande — Absences</h1><p class="subtitle" id="cmd-sub"></p></div>
     <div class="btn-group" style="align-items:center">
+      <button class="btn btn-amber btn-sm" id="btn-send-modif-cmd" onclick="openModifModal()" style="display:none">📧 Envoyer la modification à la cuisine</button>
       <button class="btn btn-outline btn-sm" onclick="exportCommandeExcel()">📤 Export Excel</button>
       <label class="btn btn-outline btn-sm perm-absences" style="cursor:pointer">📥 Import Excel<input type="file" id="import-cmd-excel" accept=".xlsx,.xls" style="display:none" onchange="importCommandeExcel(event)"></label>
       <button class="btn btn-outline btn-sm" id="btn-reset-week" onclick="resetWeek()" style="opacity:.3;cursor:not-allowed" disabled title="Réservé au Super Admin">🔄 Réinitialiser</button>
@@ -477,7 +480,10 @@ tr:hover td{background:rgba(0,0,0,.015)}
 <div class="view" id="v-groupes">
   <div class="page-header">
     <div><h1>Personnel & Groupes</h1><p class="subtitle">Commandes hors résidents</p></div>
-    <button class="btn btn-primary btn-sm perm-edit" onclick="addGroupe()">+ Nouveau groupe</button>
+    <div class="btn-group" style="align-items:center">
+      <button class="btn btn-amber btn-sm" id="btn-send-modif-grp" onclick="openModifModal()" style="display:none">📧 Envoyer la modification à la cuisine</button>
+      <button class="btn btn-primary btn-sm perm-edit" onclick="addGroupe()">+ Nouveau groupe</button>
+    </div>
   </div>
   <div id="grp-content"></div>
 </div>
@@ -700,6 +706,58 @@ tr:hover td{background:rgba(0,0,0,.015)}
   </div>
 </div>
 
+
+<!-- Modal Voir Bon -->
+<div class="modal-overlay" id="modal-voir-bon">
+  <div class="modal" style="max-width:600px">
+    <div class="modal-head"><h2 id="voir-bon-title">Bon de modification</h2><button class="modal-close" onclick="closeModal('modal-voir-bon')">✕</button></div>
+    <div class="modal-body">
+      <div id="voir-bon-meta" style="margin-bottom:16px;padding:12px 16px;background:var(--bg);border-radius:8px;font-size:13px;line-height:1.8"></div>
+      <div id="voir-bon-content" style="max-height:400px;overflow-y:auto"></div>
+    </div>
+    <div class="modal-foot"><button class="btn btn-outline" onclick="closeModal('modal-voir-bon')">Fermer</button></div>
+  </div>
+</div>
+
+
+<!-- Modal Délocalisation ponctuelle -->
+<div class="modal-overlay" id="modal-deloc">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-head" style="background:var(--teal);color:#fff"><h2>📍 Repas ailleurs</h2><button class="modal-close" onclick="cancelDeloc()" style="color:#fff;background:rgba(255,255,255,.15)">✕</button></div>
+    <div class="modal-body">
+      <div id="deloc-info" style="margin-bottom:14px;font-size:14px"></div>
+      <div class="form-group">
+        <label>Mange exceptionnellement à :</label>
+        <select id="deloc-lieu"></select>
+      </div>
+      <p style="font-size:12px;color:var(--txt3);margin-top:10px">Le résident sera compté dans ce lieu pour ce repas uniquement, et retiré de son lieu habituel. Son régime reste inchangé.</p>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" onclick="cancelDeloc()">Annuler</button>
+      <button class="btn btn-primary" onclick="confirmDeloc()">Confirmer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Renvoyer Bon -->
+<div class="modal-overlay" id="modal-renvoi-bon">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-head" style="background:var(--green);color:#fff"><h2>📧 Renvoyer à la cuisine</h2><button class="modal-close" onclick="closeModal('modal-renvoi-bon')" style="color:#fff;background:rgba(255,255,255,.15)">✕</button></div>
+    <div class="modal-body">
+      <div id="renvoi-bon-info" style="margin-bottom:16px;font-size:13px;color:var(--txt2)"></div>
+      <div class="form-group">
+        <label>Message (optionnel)</label>
+        <textarea id="renvoi-note" placeholder="Ex : Renvoi suite à non-réception…" style="min-height:70px"></textarea>
+      </div>
+      <div id="renvoi-status" style="display:none;margin-top:10px;padding:10px 14px;border-radius:8px;font-size:13px;font-weight:500"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" onclick="closeModal('modal-renvoi-bon')">Annuler</button>
+      <button class="btn btn-success" id="btn-renvoi-bon" onclick="confirmRenvoiBon()">📧 Renvoyer</button>
+    </div>
+  </div>
+</div>
+
 </main>
 
 <!-- Save Bar -->
@@ -769,9 +827,10 @@ tr:hover td{background:rgba(0,0,0,.015)}
         <div class="form-group full"><label>Résident *</label><select id="a-res"></select></div>
         <div class="form-group"><label>Motif</label><select id="a-mot"><option>Congés</option><option>Hospitalisation</option><option>Sortie</option><option>Autre</option></select></div>
         <div class="form-group"><label>Note</label><input type="text" id="a-note"></div>
-        <div class="form-group"><label>Début *</label><input type="date" id="a-deb"></div>
-        <div class="form-group"><label>Fin *</label><input type="date" id="a-fin"></div>
-        <div class="form-group full"><label>Services</label><div style="display:flex;gap:16px;margin-top:4px"><label class="checkbox-label"><input type="checkbox" id="a-midi" checked> Midi</label><label class="checkbox-label"><input type="checkbox" id="a-soir" checked> Soir</label></div></div>
+        <div class="form-group"><label>📅 Date de début (départ) *</label><input type="date" id="a-deb"></div>
+        <div class="form-group"><label>Départ après le repas du</label><select id="a-deb-repas"><option value="avant">Avant le repas de midi (ne mange pas le jour J)</option><option value="midi" selected>Midi (mange le midi, pas le soir)</option><option value="soir">Soir (mange midi et soir)</option></select></div>
+        <div class="form-group"><label>📅 Date de fin (retour) *</label><input type="date" id="a-fin"></div>
+        <div class="form-group"><label>Retour avant le repas du</label><select id="a-fin-repas"><option value="soir">Soir (ne mange ni midi ni soir le jour J)</option><option value="midi" selected>Midi (mange à partir du midi)</option><option value="apres">Après le repas du soir (mange midi et soir)</option></select></div>
       </div>
     </div>
     <div class="modal-foot"><button class="btn btn-outline" onclick="closeModal('modal-absence')">Annuler</button><button class="btn btn-primary" onclick="saveAbsence()">Enregistrer</button></div>
@@ -849,12 +908,15 @@ tr:hover td{background:rgba(0,0,0,.015)}
   <div class="modal" style="max-width:500px">
     <div class="modal-head" style="background:var(--green);color:#fff"><h2>📧 Envoi par email</h2><button class="modal-close" onclick="closeModal('modal-email')" style="color:#fff;background:rgba(255,255,255,.15)">✕</button></div>
     <div class="modal-body">
-      <div style="font-size:13px;color:var(--txt2);margin-bottom:20px">
+      <div style="font-size:13px;color:var(--txt2);margin-bottom:16px">
         La commande de la semaine <strong id="email-semaine"></strong> sera envoyée à :
         <ul style="margin-top:10px;padding-left:20px;line-height:2">
           <li>📬 <strong>m.cuisine@andapei47.fr</strong> (destinataire principal)</li>
           <li>📬 <strong>n.bielle@andapei47.fr</strong> (copie)</li>
         </ul>
+      </div>
+      <div style="background:var(--amber-bg);border-left:3px solid var(--amber);border-radius:0 8px 8px 0;padding:10px 14px;margin-bottom:16px;font-size:13px;color:var(--amber);font-weight:600">
+        🤔 Avez-vous pensé à contrôler les repas du personnel (onglet Personnel &amp; Groupes) ?
       </div>
       <div class="form-group">
         <label>Message optionnel</label>
@@ -923,7 +985,153 @@ function fmtDate(d){if(!d)return'—';try{return new Date(d).toLocaleDateString(
 function getDateForDay(week,dayIdx){const y=S.currentYear,j=new Date(y,0,1),off=(j.getDay()===0?-6:1)-j.getDay(),m=new Date(j);m.setDate(j.getDate()+off+(week-1)*7+dayIdx);return m}
 function isDatePast(dayIdx){const d=getDateForDay(S.currentWeek,dayIdx),t=new Date();d.setHours(0,0,0,0);t.setHours(0,0,0,0);return d<t}
 function isTempoActive(t,w,y){if(t.archived)return false;const j=new Date(y,0,1),off=(j.getDay()===0?-6:1)-j.getDay(),mon=new Date(j);mon.setDate(j.getDate()+off+(w-1)*7);mon.setHours(0,0,0,0);const sun=new Date(mon);sun.setDate(mon.getDate()+6);sun.setHours(23,59,59,999);const db=new Date(t.dateArrivee);db.setHours(0,0,0,0);const fn=new Date(t.dateDepart);fn.setHours(23,59,59,999);return db<=sun&&fn>=mon}
-function isPlannedAbs(rid,dayIdx,svc){const d=getDateForDay(S.currentWeek,dayIdx);const dd=new Date(d.getFullYear(),d.getMonth(),d.getDate());return(S.plannedAbsences||[]).some(a=>{if(a.residentId!==rid)return false;const s=new Date(a.debut),e=new Date(a.fin);const sd=new Date(s.getFullYear(),s.getMonth(),s.getDate()),ed=new Date(e.getFullYear(),e.getMonth(),e.getDate());if(dd<sd||dd>ed)return false;if(svc==='midi'&&!a.midi)return false;if(svc==='soir'&&!a.soir)return false;return true})}
+function isPlannedAbs(rid,dayIdx,svc){
+  const d=getDateForDay(S.currentWeek,dayIdx);
+  const dd=new Date(d.getFullYear(),d.getMonth(),d.getDate());
+  return(S.plannedAbsences||[]).some(a=>{
+    if(a.residentId!==rid)return false;
+    const s=new Date(a.debut),e=new Date(a.fin);
+    const sd=new Date(s.getFullYear(),s.getMonth(),s.getDate());
+    const ed=new Date(e.getFullYear(),e.getMonth(),e.getDate());
+    if(dd<sd||dd>ed)return false;
+
+    const isFirstDay = dd.getTime()===sd.getTime();
+    const isLastDay = dd.getTime()===ed.getTime();
+    const depRepas = a.debRepas || 'midi'; // avant | midi | soir
+    const finRepas = a.finRepas || 'midi'; // soir | midi | apres
+
+    // Jour de départ : selon depRepas, certains repas du jour J sont encore pris
+    if(isFirstDay && !(isLastDay)){
+      if(depRepas==='avant') return true; // absent dès le matin, donc absent midi ET soir
+      if(depRepas==='midi') return svc==='soir'; // mange le midi, absent le soir
+      if(depRepas==='soir') return false; // mange midi ET soir, absent seulement à partir du lendemain
+    }
+
+    // Jour de retour : selon finRepas, certains repas du jour J sont déjà pris
+    if(isLastDay && !(isFirstDay)){
+      if(finRepas==='soir') return true; // absent toute la journée, revient après le repas du soir
+      if(finRepas==='midi') return svc==='midi'; // absent le midi, présent le soir
+      if(finRepas==='apres') return false; // déjà revenu avant midi, présent midi ET soir
+    }
+
+    // Cas particulier : départ et retour le même jour
+    if(isFirstDay && isLastDay){
+      // Absent seulement pour les repas couverts par la combinaison départ/retour
+      let absentMidi=false, absentSoir=false;
+      if(depRepas==='avant') absentMidi=true;
+      if(depRepas==='midi'||depRepas==='avant') absentSoir = (finRepas!=='apres') ? true : false;
+      if(finRepas==='soir') absentMidi = (depRepas==='avant') ? true : absentMidi;
+      // Simplification : si le départ est avant/midi et le retour est midi/soir, on bloque en conséquence
+      if(svc==='midi') return depRepas==='avant' || finRepas==='soir';
+      if(svc==='soir') return (depRepas==='avant'||depRepas==='midi') && finRepas!=='apres';
+      return false;
+    }
+
+    // Jours intermédiaires : toujours absent
+    return true;
+  });
+}
+
+// Vérifie si une personne est absente à un jour/service donné de la semaine COURANTE (S.currentWeek),
+// en combinant : absence cochée manuellement (S.absences) + absence planifiée (congés/hospit.)
+// dayIdx : 0=Lundi ... 6=Dimanche (relatif à S.currentWeek)
+function isAbsentSlot(pid, dayIdx, svc){
+  const w = wk();
+  const slot = dayIdx*2 + (svc==='soir'?1:0);
+  const stored = S.absences[w]?.[pid]?.[slot] || false;
+  const planned = isPlannedAbs(pid, dayIdx, svc);
+  return stored || planned;
+}
+
+// Retourne le lieu effectif d'un résident/temporaire pour un jour/service donné de la semaine COURANTE :
+// le lieu de délocalisation ponctuelle si présent, sinon son lieu d'affectation habituel.
+function getEffectiveLieu(pid, dayIdx, svc, defaultLieuId){
+  const w = wk();
+  const pk = `${pid}_${dayIdx}_${svc}`;
+  const del = S.delocalisations?.[w]?.[pk];
+  return del || defaultLieuId;
+}
+
+// ============================================================
+// GROUPES — Valeurs par défaut (modèle récurrent) + overrides hebdomadaires
+// ============================================================
+// Retourne la valeur EFFECTIVE pour un groupe/champ/jour, pour la semaine S.currentWeek/S.currentYear
+// Priorité : override de la semaine si défini, sinon valeur par défaut du groupe
+function getGrpVal(g, field, dayIdx){
+  const w = wk();
+  const ov = S.groupesOverrides?.[w]?.[g.id]?.[field]?.[dayIdx];
+  if(ov !== undefined && ov !== null) return ov;
+  return (g[field]||Array(7).fill(0))[dayIdx] || 0;
+}
+
+// Vérifie si une cellule groupe a un override pour la semaine courante
+function hasGrpOverride(g, field, dayIdx){
+  const w = wk();
+  const ov = S.groupesOverrides?.[w]?.[g.id]?.[field]?.[dayIdx];
+  return ov !== undefined && ov !== null;
+}
+
+// Définit un override ponctuel pour la semaine courante (ne touche pas le modèle par défaut)
+function setGrpOverride(groupeId, field, dayIdx, value){
+  const w = wk();
+  const g = S.groupes.find(x=>x.id===groupeId);
+  if(!g)return;
+  const defaultVal = (g[field]||Array(7).fill(0))[dayIdx] || 0;
+
+  // IMPORTANT : capturer la valeur effective AVANT toute modification de l'override
+  const oldEffective = getGrpVal(g, field, dayIdx);
+
+  if(!S.groupesOverrides)S.groupesOverrides={};
+  if(!S.groupesOverrides[w])S.groupesOverrides[w]={};
+  if(!S.groupesOverrides[w][groupeId])S.groupesOverrides[w][groupeId]={};
+  if(!S.groupesOverrides[w][groupeId][field])S.groupesOverrides[w][groupeId][field]={};
+
+  if(value === defaultVal){
+    // Revenir à la valeur par défaut = supprimer l'override
+    delete S.groupesOverrides[w][groupeId][field][dayIdx];
+  } else {
+    S.groupesOverrides[w][groupeId][field][dayIdx] = value;
+  }
+
+  // Tracking modification (comme pour les résidents) si commande déjà envoyée
+  if(S.printHistory?.[w]?.printDate && oldEffective !== value){
+    trackGrpMod(g, field, dayIdx, oldEffective, value);
+  }
+
+  save('groupes_overrides');
+}
+
+function trackGrpMod(g, field, dayIdx, oldV, newV){
+  const w=wk();
+  if(!S.printHistory||!S.printHistory[w]||!S.printHistory[w].printDate)return;
+  const fieldLabels={vals:'Repas Midi',valsSoir:'Repas Soir',valsPn:'PN Midi',valsSoirPn:'PN Soir'};
+  const mods=S.printHistory[w].modifications;
+  const key=`grp_${g.id}_${field}_${dayIdx}`;
+  const existing=mods.find(m=>m._grpKey===key);
+  if(existing){
+    existing.newValue=String(newV);
+    existing.date=new Date().toISOString();
+    if(existing.newValue===existing.oldValue){
+      mods.splice(mods.indexOf(existing),1);
+    }
+  } else {
+    mods.push({
+      date:new Date().toISOString(),
+      personId:g.id,
+      personName:g.nom+' ('+(fieldLabels[field]||field)+')',
+      dayIndex:dayIdx,
+      dayName:DAYS[dayIdx],
+      service:field.includes('Soir')?'soir':'midi',
+      oldValue:String(oldV),
+      newValue:String(newV),
+      isGroupe:true,
+      _grpKey:key
+    });
+  }
+  save('print_history');
+  updateBonBtn();
+  updateModifSendBtn();
+}
 
 // ============================================================
 // STATE
@@ -954,7 +1162,9 @@ const defaultState={
     {id:'g1',nom:'Administratif',lieuId:'M1',vals:[2,0,0,0,2,0,0],valsSoir:[0,0,0,0,0,0,0],valsPn:[0,0,0,0,0,0,0],valsSoirPn:[0,0,0,0,0,0,0]},
     {id:'g3',nom:'Cuisine',lieuId:'M1',vals:[2,1,1,1,2,1,1],valsSoir:[2,1,1,1,2,1,1],valsPn:[0,0,0,0,0,0,0],valsSoirPn:[0,0,0,0,0,0,0]}
   ],
-  plannedAbsences:[],affectations:{},absences:{},piquenique:{},printHistory:{},bonsModification:[]
+  plannedAbsences:[],affectations:{},absences:{},piquenique:{},printHistory:{},bonsModification:[],
+  delocalisations:{}, // {week_year: {pid_dayIdx_svc: lieuId}} — changement ponctuel de lieu
+  groupesOverrides:{} // {week_year: {groupeId: {vals:[7], valsSoir:[7], valsPn:[7], valsSoirPn:[7]}}}
 };
 
 let S=null, cmdFilter='all', resFilter='all', tempoFilt='all', regTab='textures', _cfCb=null, bonDelId=null;
@@ -1059,6 +1269,16 @@ async function loadFromSupabase(){
       }));
     }
 
+    // Groupes — overrides hebdomadaires
+    const {data:grpOv}=await db.from('groupes_overrides').select('*');
+    S.groupesOverrides={};
+    if(grpOv){
+      grpOv.forEach(o=>{
+        if(!S.groupesOverrides[o.semaine])S.groupesOverrides[o.semaine]={};
+        S.groupesOverrides[o.semaine][o.groupe_id]=o.overrides||{};
+      });
+    }
+
     // Absences hebdo
     const {data:abs}=await db.from('absences').select('*');
     if(abs){
@@ -1078,12 +1298,23 @@ async function loadFromSupabase(){
       });
     }
 
+    // Délocalisations ponctuelles
+    const {data:del}=await db.from('delocalisations').select('*');
+    S.delocalisations={};
+    if(del){
+      del.forEach(d=>{
+        S.delocalisations[d.semaine]=d.cles||{};
+      });
+    }
+
     // Absences planifiées
     const {data:absPlan}=await db.from('absences_planifiees').select('*').order('debut');
     if(absPlan){
       S.plannedAbsences=absPlan.map(a=>({
         id:a.id,residentId:a.resident_id,motif:a.motif||'',note:a.note||'',
-        debut:a.debut,fin:a.fin,midi:a.midi!==false,soir:a.soir!==false
+        debut:a.debut,fin:a.fin,
+        debRepas:a.deb_repas||(a.midi!==false?'midi':'avant'),
+        finRepas:a.fin_repas||(a.soir!==false?'midi':'soir')
       }));
     }
 
@@ -1215,6 +1446,24 @@ async function pushToSupabase(section='all'){
       }
     }
 
+    if(section==='all'||section==='groupes_overrides'){
+      const weeks=Object.keys(S.groupesOverrides||{});
+      for(const w of weeks){
+        const groupeIds=Object.keys(S.groupesOverrides[w]||{});
+        for(const gid of groupeIds){
+          const overrides=S.groupesOverrides[w][gid];
+          const hasAny=Object.values(overrides).some(f=>f&&Object.keys(f).length>0);
+          if(hasAny){
+            await db.from('groupes_overrides').upsert({
+              id:`${w}_${gid}`,semaine:w,groupe_id:gid,overrides:overrides
+            },{onConflict:'id'});
+          } else {
+            await db.from('groupes_overrides').delete().eq('id',`${w}_${gid}`);
+          }
+        }
+      }
+    }
+
     if(section==='all'||section==='absences'){
       // Upsert les absences par semaine
       const semaines=Object.keys(S.absences);
@@ -1239,11 +1488,23 @@ async function pushToSupabase(section='all'){
       }
     }
 
+    if(section==='all'||section==='delocalisations'){
+      const semaines=Object.keys(S.delocalisations||{});
+      for(const sem of semaines){
+        await db.from('delocalisations').delete().eq('semaine',sem);
+        if(Object.keys(S.delocalisations[sem]||{}).length>0){
+          await db.from('delocalisations').insert({semaine:sem,cles:S.delocalisations[sem]});
+        }
+      }
+    }
+
     if(section==='all'||section==='absences_planifiees'){
       if(S.plannedAbsences.length>0){
         const rows=S.plannedAbsences.map(a=>({
           id:a.id,resident_id:a.residentId,motif:a.motif,note:a.note,
-          debut:a.debut,fin:a.fin,midi:a.midi,soir:a.soir
+          debut:a.debut,fin:a.fin,
+          deb_repas:a.debRepas||'midi',fin_repas:a.finRepas||'midi',
+          midi:a.debRepas!=='avant',soir:a.finRepas!=='soir'
         }));
         await db.from('absences_planifiees').upsert(rows,{onConflict:'id'});
       }
@@ -1350,7 +1611,14 @@ function renderView(id){
 
 function changeWeek(w){S.currentWeek=w;save('config');updateFooter();const v=document.querySelector('.view.active');if(v)renderView(v.id.replace('v-',''))}
 function changeYear(y){S.currentYear=y;save('config');updateFooter();const v=document.querySelector('.view.active');if(v)renderView(v.id.replace('v-',''))}
-function updateFooter(){const f=$('footerWeek');if(f)f.textContent=`Semaine ${S.currentWeek} · ${S.currentYear}`}
+function updateFooter(){
+  const f=$('footerWeek');if(f)f.textContent=`Semaine ${S.currentWeek} · ${S.currentYear}`;
+  const wd=$('week-dates');
+  if(wd){
+    const mon=getDateForDay(S.currentWeek,0), sun=getDateForDay(S.currentWeek,6);
+    wd.textContent=`Du ${fmtDate(mon.toISOString())} au ${fmtDate(sun.toISOString())}`;
+  }
+}
 
 function toggleMobile(){$('sidebar').classList.toggle('mobile-open');$('sidebarOverlay').classList.toggle('active');$('mobileMenuBtn').classList.toggle('active')}
 function closeMobile(){$('sidebar').classList.remove('mobile-open');$('sidebarOverlay').classList.remove('active');$('mobileMenuBtn').classList.remove('active')}
@@ -1384,9 +1652,54 @@ function trackPrint(){
   }
   updateBonBtn();
 }
-function captureState(){const w=wk();return{absences:JSON.parse(JSON.stringify(S.absences[w]||{})),piquenique:JSON.parse(JSON.stringify(S.piquenique[w]||{}))}}
-function trackMod(pid,dayIdx,svc,oldV,newV){const w=wk();if(!S.printHistory||!S.printHistory[w]||!S.printHistory[w].printDate)return;let name='';const r=S.residents.find(x=>x.id===pid);if(r)name=r.nom;else{const t=(S.temporaires||[]).find(x=>x.id===pid);if(t)name=t.nom+' (AT)'}S.printHistory[w].modifications.push({date:new Date().toISOString(),personId:pid,personName:name,dayIndex:dayIdx,dayName:DAYS[dayIdx],service:svc,oldValue:oldV,newValue:newV});save('print_history');updateBonBtn()}
+function captureState(){const w=wk();return{absences:JSON.parse(JSON.stringify(S.absences[w]||{})),piquenique:JSON.parse(JSON.stringify(S.piquenique[w]||{})),groupesOverrides:JSON.parse(JSON.stringify(S.groupesOverrides?.[w]||{})),delocalisations:JSON.parse(JSON.stringify(S.delocalisations?.[w]||{}))}}
+// Formate une valeur de modification ('OK','ABS','PN','DEL:lieuId') en texte lisible
+function formatModValue(v){
+  if(!v)return v;
+  if(v.startsWith('DEL:')){
+    const lieuId=v.slice(4);
+    const lieu=S.lieux.find(l=>l.id===lieuId);
+    return '→ '+(lieu?.nom||lieuId);
+  }
+  return v;
+}
+
+function trackMod(pid,dayIdx,svc,oldV,newV){
+  const w=wk();
+  if(!S.printHistory||!S.printHistory[w]||!S.printHistory[w].printDate)return;
+  let name='';
+  const r=S.residents.find(x=>x.id===pid);
+  if(r)name=r.nom;
+  else{const t=(S.temporaires||[]).find(x=>x.id===pid);if(t)name=t.nom+' (AT)'}
+
+  // Chercher si une modification existe déjà pour cette même personne/jour/service
+  // depuis le dernier envoi : si oui, on met à jour son "newValue" au lieu d'empiler
+  const mods=S.printHistory[w].modifications;
+  const existing=mods.find(m=>m.personId===pid&&m.dayIndex===dayIdx&&m.service===svc);
+
+  if(existing){
+    // Mettre à jour la valeur finale et l'heure, garder la valeur d'origine (oldValue) intacte
+    existing.newValue=newV;
+    existing.date=new Date().toISOString();
+    // Si on revient à l'état d'origine, supprimer l'entrée (plus de modification nette)
+    if(existing.newValue===existing.oldValue){
+      const idx=mods.indexOf(existing);
+      mods.splice(idx,1);
+    }
+  } else {
+    mods.push({date:new Date().toISOString(),personId:pid,personName:name,dayIndex:dayIdx,dayName:DAYS[dayIdx],service:svc,oldValue:oldV,newValue:newV});
+  }
+
+  save('print_history');
+  updateBonBtn();
+}
 function updateBonBtn(){const w=wk(),b=$('btn-bon');if(!b)return;const has=S.printHistory?.[w]?.modifications?.length>0;b.style.display=has?'inline-flex':'none'}
+function updateModifSendBtn(){
+  const w=wk();
+  const has=S.printHistory?.[w]?.printDate && (S.printHistory?.[w]?.modifications?.length>0);
+  const b1=$('btn-send-modif-cmd');if(b1)b1.style.display=has?'inline-flex':'none';
+  const b2=$('btn-send-modif-grp');if(b2)b2.style.display=has?'inline-flex':'none';
+}
 
 // ============================================================
 // RENDER — DASHBOARD
@@ -1563,23 +1876,78 @@ function filterCmd(lid,btn){cmdFilter=lid;document.querySelectorAll('#cmd-filter
 function togglePresence(pid,dayIdx,svc){
   const w=wk();if(!S.absences[w])S.absences[w]={};if(!S.absences[w][pid])S.absences[w][pid]=Array(14).fill(false);
   const slot=dayIdx*2+(svc==='soir'?1:0);if(!S.piquenique[w])S.piquenique[w]={};const pk=`${pid}_${dayIdx}_${svc}`;
-  const isAbs=S.absences[w][pid][slot],isPn=S.piquenique[w][pk];
-  let oldV='OK',newV='';
-  if(isAbs)oldV='ABS';else if(isPn)oldV='PN';
-  if(!isAbs&&!isPn){S.absences[w][pid][slot]=true;newV='ABS'}
-  else if(isAbs&&!isPn){S.absences[w][pid][slot]=false;S.piquenique[w][pk]=true;newV='PN'}
-  else{S.piquenique[w][pk]=false;newV='OK'}
+  if(!S.delocalisations)S.delocalisations={};if(!S.delocalisations[w])S.delocalisations[w]={};
+  const isAbs=S.absences[w][pid][slot],isPn=S.piquenique[w][pk],delLieu=S.delocalisations[w][pk];
+  let oldV='OK';
+  if(isAbs)oldV='ABS';else if(isPn)oldV='PN';else if(delLieu)oldV='DEL:'+delLieu;
+
+  if(!isAbs&&!isPn&&!delLieu){
+    // OK -> ABS
+    S.absences[w][pid][slot]=true;
+    finishToggle(pid,dayIdx,svc,oldV,'ABS');
+  } else if(isAbs&&!isPn){
+    // ABS -> PN
+    S.absences[w][pid][slot]=false;S.piquenique[w][pk]=true;
+    finishToggle(pid,dayIdx,svc,oldV,'PN');
+  } else if(isPn){
+    // PN -> demander le lieu de délocalisation
+    S.piquenique[w][pk]=false;
+    openDelocModal(pid,dayIdx,svc);
+    return; // la suite se fait après choix du lieu dans confirmDeloc()
+  } else if(delLieu){
+    // DEL -> retour à OK
+    delete S.delocalisations[w][pk];
+    finishToggle(pid,dayIdx,svc,oldV,'OK');
+  }
+}
+
+function finishToggle(pid,dayIdx,svc,oldV,newV){
+  const w=wk();
   trackMod(pid,dayIdx,svc,oldV,newV);
   auditLog('ABSENCE_MODIFIEE',{resident:pid,jour:DAYS[dayIdx],service:svc,de:oldV,vers:newV});
   save('absences');
   clearTimeout(saveTimer);
-  saveTimer=setTimeout(()=>pushToSupabase('piquenique'),800);
+  saveTimer=setTimeout(()=>{pushToSupabase('piquenique');pushToSupabase('delocalisations')},800);
   renderCommande();
-  // Si commande déjà envoyée, proposer envoi modif après un délai
-  if(S.printHistory?.[w]?.printDate){
-    clearTimeout(window._modifTimer);
-    window._modifTimer=setTimeout(()=>openModifModal(),1500);
-  }
+  updateModifSendBtn();
+}
+
+let _delocCtx=null;
+function openDelocModal(pid,dayIdx,svc){
+  _delocCtx={pid,dayIdx,svc};
+  const r=S.residents.find(x=>x.id===pid)||(S.temporaires||[]).find(x=>x.id===pid);
+  const currentLieuId=svc==='midi'?S.affectations[pid]?.midi:S.affectations[pid]?.soir;
+  $('deloc-info').innerHTML=`<strong>${r?.nom||pid}</strong> — ${DAYS[dayIdx]} ${svc==='midi'?'midi':'soir'}`;
+  $('deloc-lieu').innerHTML=S.lieux.filter(l=>!l.isStaffOnly&&l.id!==currentLieuId).map(l=>`<option value="${l.id}">${l.nom}</option>`).join('');
+  openModal('modal-deloc');
+}
+
+function confirmDeloc(){
+  if(!_delocCtx)return;
+  const {pid,dayIdx,svc}=_delocCtx;
+  const w=wk();
+  const lieuId=$('deloc-lieu').value;
+  if(!lieuId){toast('Choisissez un lieu','error');return}
+  const pk=`${pid}_${dayIdx}_${svc}`;
+  if(!S.delocalisations)S.delocalisations={};if(!S.delocalisations[w])S.delocalisations[w]={};
+  S.delocalisations[w][pk]=lieuId;
+  const lieu=S.lieux.find(l=>l.id===lieuId);
+  closeModal('modal-deloc');
+  finishToggle(pid,dayIdx,svc,'PN','DEL:'+lieuId);
+  toast(`Repas déplacé vers ${lieu?.nom||lieuId}`,'success');
+  _delocCtx=null;
+}
+
+function cancelDeloc(){
+  // L'utilisateur a annulé : remettre l'état précédent (PN) puisqu'on l'avait retiré en amont
+  if(!_delocCtx){closeModal('modal-deloc');return}
+  const {pid,dayIdx,svc}=_delocCtx;
+  const w=wk();
+  const pk=`${pid}_${dayIdx}_${svc}`;
+  S.piquenique[w][pk]=true; // restaurer l'état PN
+  closeModal('modal-deloc');
+  renderCommande();
+  _delocCtx=null;
 }
 
 function openModifModal(){
@@ -1593,13 +1961,87 @@ function openModifModal(){
       const r=S.residents.find(x=>x.id===m.personId)||(S.temporaires||[]).find(x=>x.id===m.personId);
       const nom=r?.nom||m.personName||m.personId;
       const d=new Date(m.date);
-      return`<div style="border-bottom:1px solid var(--border);padding:2px 0"><strong>${nom}</strong> — ${m.dayName} ${m.service} : <span style="color:var(--red)">${m.oldValue}</span> → <span style="color:var(--green)">${m.newValue}</span> <span style="color:var(--txt3);font-size:10px">(${d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})})</span></div>`;
+      return`<div style="border-bottom:1px solid var(--border);padding:2px 0"><strong>${nom}</strong> — ${m.dayName} ${m.service} : <span style="color:var(--red)">${formatModValue(m.oldValue)}</span> → <span style="color:var(--green)">${formatModValue(m.newValue)}</span> <span style="color:var(--txt3);font-size:10px">(${d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})})</span></div>`;
     }).join('');
   }
   $('modif-note').value='';
   $('modif-email-status').style.display='none';
   const btn=$('btn-send-modif');if(btn){btn.disabled=false;btn.textContent='📧 Envoyer à la cuisine';}
   openModal('modal-modif-envoi');
+}
+
+// Construit le tableau HTML +N/-N par lieu, régime et jour (delta net), à partir
+// du snapshot initial (avant impression) et de l'état courant
+function buildDeltaHTML(week, year, bonNum){
+  const w = `${year}_${week}`;
+  const snapInit = S.printHistory[w]?.snapshot;
+  if(!snapInit) return '';
+  const snapCur = {absences: JSON.parse(JSON.stringify(S.absences[w]||{})), piquenique: JSON.parse(JSON.stringify(S.piquenique[w]||{})), groupesOverrides: JSON.parse(JSON.stringify(S.groupesOverrides?.[w]||{})), delocalisations: JSON.parse(JSON.stringify(S.delocalisations?.[w]||{}))};
+
+  const tAvant = calcTotauxByLieu(snapInit);
+  const tApres = calcTotauxByLieu(snapCur);
+  const sections = {};
+  S.lieux.filter(l=>!l.isStaffOnly).forEach(l=>{const s=l.section||'Autre'; if(!sections[s])sections[s]=[]; sections[s].push(l.nom)});
+
+  const mon = getDateForDay(week,0), sun = getDateForDay(week,6);
+  let html = `<h3 style="font-family:Arial,sans-serif;color:#dc2626;margin-bottom:2px">BON DE MODIFICATION N°${bonNum}</h3>`;
+  html += `<p style="font-family:Arial,sans-serif;color:#6b7280;font-size:12px;margin-bottom:14px">Semaine ${week}/${year} — Du ${fmtDate(mon.toISOString())} au ${fmtDate(sun.toISOString())}</p>`;
+
+  Object.keys(sections).sort().forEach(secName=>{
+    const rAvS=new Map(), rApS=new Map();
+    sections[secName].forEach(lNom=>{
+      // Repas normaux
+      (tAvant[lNom]||new Map()).forEach((d,k)=>{if(!rAvS.has(k))rAvS.set(k,{midi:Array(7).fill(0),soir:Array(7).fill(0)});const e=rAvS.get(k);for(let i=0;i<7;i++){e.midi[i]+=(d.midi[i]||0);e.soir[i]+=(d.soir[i]||0)}});
+      (tApres[lNom]||new Map()).forEach((d,k)=>{if(!rApS.has(k))rApS.set(k,{midi:Array(7).fill(0),soir:Array(7).fill(0)});const e=rApS.get(k);for(let i=0;i<7;i++){e.midi[i]+=(d.midi[i]||0);e.soir[i]+=(d.soir[i]||0)}});
+      // Pique-niques (préfixés "🧺 PN ")
+      (tAvant[lNom+'__PN']||new Map()).forEach((d,k)=>{const pk='🧺 PN '+k;if(!rAvS.has(pk))rAvS.set(pk,{midi:Array(7).fill(0),soir:Array(7).fill(0)});const e=rAvS.get(pk);for(let i=0;i<7;i++){e.midi[i]+=(d.midi[i]||0);e.soir[i]+=(d.soir[i]||0)}});
+      (tApres[lNom+'__PN']||new Map()).forEach((d,k)=>{const pk='🧺 PN '+k;if(!rApS.has(pk))rApS.set(pk,{midi:Array(7).fill(0),soir:Array(7).fill(0)});const e=rApS.get(pk);for(let i=0;i<7;i++){e.midi[i]+=(d.midi[i]||0);e.soir[i]+=(d.soir[i]||0)}});
+    });
+    // Liste de toutes les clés régime concernées (avant union après)
+    const allKeys = new Set([...rAvS.keys(), ...rApS.keys()]);
+    let hasDelta=false;
+    allKeys.forEach(k=>{
+      const dAv=rAvS.get(k)||{midi:Array(7).fill(0),soir:Array(7).fill(0)};
+      const dAp=rApS.get(k)||{midi:Array(7).fill(0),soir:Array(7).fill(0)};
+      for(let i=0;i<7;i++){if(dAv.midi[i]!==dAp.midi[i]||dAv.soir[i]!==dAp.soir[i])hasDelta=true}
+    });
+    if(!hasDelta)return;
+
+    html += `<div style="font-family:Arial,sans-serif;font-weight:700;font-size:13px;background:#111;color:#fff;padding:5px 10px;margin:14px 0 6px">${secName.toUpperCase()}</div>`;
+    html += `<table border="1" cellpadding="4" cellspacing="0" style="border-collapse:collapse;font-family:Arial,sans-serif;font-size:11px;width:100%">`;
+    html += `<thead><tr style="background:#e5e7eb"><th>RÉGIME</th>`;
+    DAYS_S.forEach(d=>html+=`<th colspan="2">${d}<br><span style="font-size:8px">M / S</span></th>`);
+    html += `<th>TOTAL</th></tr></thead><tbody>`;
+
+    [...allKeys].sort((a,b)=>a.localeCompare(b)).forEach(k=>{
+      const dAv=rAvS.get(k)||{midi:Array(7).fill(0),soir:Array(7).fill(0)};
+      const dAp=rApS.get(k)||{midi:Array(7).fill(0),soir:Array(7).fill(0)};
+      let totalDelta=0;
+      let rowHTML='';
+      let rowHasDelta=false;
+      for(let i=0;i<7;i++){
+        const deltaM=(dAp.midi[i]||0)-(dAv.midi[i]||0);
+        const deltaS=(dAp.soir[i]||0)-(dAv.soir[i]||0);
+        totalDelta+=deltaM+deltaS;
+        if(deltaM!==0)rowHasDelta=true;
+        if(deltaS!==0)rowHasDelta=true;
+        const fmtDelta=(v)=>{
+          if(v===0)return '<span style="color:#ccc">—</span>';
+          const sign=v>0?'+':'';
+          const color=v>0?'#059669':'#dc2626';
+          return `<span style="color:${color};font-weight:800">${sign}${v}</span>`;
+        };
+        rowHTML+=`<td style="text-align:center">${fmtDelta(deltaM)}</td><td style="text-align:center">${fmtDelta(deltaS)}</td>`;
+      }
+      if(!rowHasDelta)return;
+      const totColor=totalDelta>0?'#059669':totalDelta<0?'#dc2626':'#666';
+      const totSign=totalDelta>0?'+':'';
+      html+=`<tr><td style="font-weight:700;padding:4px 6px">${k}</td>${rowHTML}<td style="text-align:center;font-weight:800;color:${totColor};background:#f3f4f6">${totSign}${totalDelta}</td></tr>`;
+    });
+    html += `</tbody></table>`;
+  });
+
+  return html;
 }
 
 async function sendModifEmail(){
@@ -1610,15 +2052,9 @@ async function sendModifEmail(){
   const status=$('modif-email-status');
   btn.disabled=true;btn.textContent='⏳ Envoi…';
 
-  // Construire le contenu HTML des modifications
-  let htmlMods=`<h3 style="font-family:Arial,sans-serif;color:#d97706">Modifications — Semaine ${week}/${year}</h3>`;
-  htmlMods+=`<table border="1" cellpadding="4" cellspacing="0" style="border-collapse:collapse;font-family:Arial,sans-serif;font-size:12px;margin-top:10px">`;
-  htmlMods+=`<thead><tr style="background:#fee2b3"><th>Résident</th><th>Jour</th><th>Service</th><th>Avant</th><th>Après</th><th>Heure</th></tr></thead><tbody>`;
-  mods.forEach(m=>{
-    const d=new Date(m.date);
-    htmlMods+=`<tr><td>${m.personName||m.personId}</td><td>${m.dayName}</td><td>${m.service}</td><td style="color:#dc2626;font-weight:700">${m.oldValue}</td><td style="color:#059669;font-weight:700">${m.newValue}</td><td style="color:#6b7280">${d.toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</td></tr>`;
-  });
-  htmlMods+=`</tbody></table>`;
+  // Calculer le numéro de bon AVANT de construire le HTML pour pouvoir l'afficher
+  const bonNum=getNextBonNumber(week,year);
+  const htmlMods=buildDeltaHTML(week,year,bonNum);
 
   if(!EMAILJS_PUBLIC_KEY){
     status.style.display='block';
@@ -1634,7 +2070,7 @@ async function sendModifEmail(){
     emailjs.init(EMAILJS_PUBLIC_KEY);
     await emailjs.send(EMAILJS_SERVICE_ID,EMAILJS_TEMPLATE_ID,{
       semaine:`Semaine ${week} - ${year}`,
-      periode:`Modification après envoi`,
+      periode:`Bon de modification N°${bonNum}`,
       etablissement:'Maison Saint-Paul - ANDAPEI Lot-et-Garonne',
       to_email:EMAIL_CUISINE,
       cc_email:EMAIL_CC,
@@ -1645,13 +2081,10 @@ async function sendModifEmail(){
     status.style.background='var(--green-bg)';
     status.style.color='var(--green)';
     status.style.border='1px solid var(--green-border)';
-    status.innerHTML=`✅ Email envoyé à <strong>${EMAIL_CUISINE}</strong>`;
-    auditLog('MODIFICATION_ENVOYEE_CUISINE',{semaine:w,nbModifs:mods.length});
+    status.innerHTML=`✅ Bon N°${bonNum} envoyé à <strong>${EMAIL_CUISINE}</strong>`;
+    auditLog('MODIFICATION_ENVOYEE_CUISINE',{semaine:w,nbModifs:mods.length,bonNumber:bonNum});
 
-    // Créer un bon de modification dans l'historique
-    if(!S.printHistory[w].bonCounter)S.printHistory[w].bonCounter=0;
-    S.printHistory[w].bonCounter++;
-    const bonNum=S.printHistory[w].bonCounter;
+    // Créer le bon de modification dans l'historique avec le MÊME numéro que celui envoyé
     const mon2=getDateForDay(week,0),sun2=getDateForDay(week,6);
     const dd=fmtDate(mon2.toISOString()),df=fmtDate(sun2.toISOString());
     if(!S.bonsModification)S.bonsModification=[];
@@ -1663,9 +2096,13 @@ async function sendModifEmail(){
       bonNumber:bonNum,
       modificationsCount:mods.length,
       modifications:[...mods],
+      deltaHTML:htmlMods,
       sentByEmail:true,
-      sentBy:currentUser?.nom||'—'
+      sentBy:currentUser?.nom||'—',
+      sendHistory:[{date:new Date().toISOString(),by:currentUser?.nom||'—',type:'initial'}]
     });
+    // Mettre à jour le snapshot de référence pour le prochain bon
+    S.printHistory[w].snapshot = {absences: JSON.parse(JSON.stringify(S.absences[w]||{})), piquenique: JSON.parse(JSON.stringify(S.piquenique[w]||{})), groupesOverrides: JSON.parse(JSON.stringify(S.groupesOverrides?.[w]||{}))};
     // Vider les modifications en attente
     S.printHistory[w].modifications=[];
     save('print_history');
@@ -1686,6 +2123,7 @@ async function sendModifEmail(){
 
 function renderCommande(){
   const f=$('cmd-filters');if(!f)return;
+  updateModifSendBtn();
   f.innerHTML=`<button class="filter-btn ${cmdFilter==='all'?'active':''}" onclick="filterCmd('all',this)">Tous</button>`;
   S.lieux.filter(l=>!l.isStaffOnly).forEach(l=>{f.innerHTML+=`<button class="filter-btn ${cmdFilter===l.id?'active':''}" onclick="filterCmd('${l.id}',this)">${l.nom}</button>`});
   
@@ -1706,7 +2144,6 @@ function renderCommande(){
   persons.forEach(p=>{
     const tex=getTex(p.regime),pid=p.id;
     if(!S.absences[w])S.absences[w]={};if(!S.absences[w][pid])S.absences[w][pid]=Array(14).fill(false);
-    for(let di=0;di<7;di++){if(isPlannedAbs(pid,di,'midi'))S.absences[w][pid][di*2]=true;if(isPlannedAbs(pid,di,'soir'))S.absences[w][pid][di*2+1]=true}
     
     h+=`<tr ${p.isTempo?'style="border-left:3px solid var(--teal)"':''}>`;
     h+=`<td style="font-weight:600">${p.nom} ${p.isTempo?'<span class="tempo-badge">AT</span>':''}</td>`;
@@ -1716,18 +2153,24 @@ function renderCommande(){
       const ms=di*2,ss=di*2+1;
       const mPl=isPlannedAbs(pid,di,'midi'),sPl=isPlannedAbs(pid,di,'soir');
       const past=isDatePast(di);
-      const mAbs=S.absences[w][pid][ms],sAbs=S.absences[w][pid][ss];
+      const mAbs=mPl||S.absences[w][pid][ms],sAbs=sPl||S.absences[w][pid][ss];
       const mPn=S.piquenique[w]?.[`${pid}_${di}_midi`]||false,sPn=S.piquenique[w]?.[`${pid}_${di}_soir`]||false;
+      const mDel=S.delocalisations?.[w]?.[`${pid}_${di}_midi`],sDel=S.delocalisations?.[w]?.[`${pid}_${di}_soir`];
       let mHab=true,sHab=true;
       if(p.isTempo&&p.habitudes){mHab=p.habitudes[ms]!==false;sHab=p.habitudes[ss]!==false}
       
       const cmdSent=!!(S.printHistory?.[w]?.printDate);
       const isAdminUser=currentUser&&(currentUser.role==='responsable'||currentUser.role==='superadmin');
-      const mkBtn=(abs,pn,planned,isPast,hab,svc)=>{
+      const mkBtn=(abs,pn,planned,isPast,hab,svc,delLieuId)=>{
         // Habitue non concernée (AT)
         if(!hab)return`<button class="repas-btn" disabled style="opacity:.3;cursor:not-allowed;background:transparent;color:var(--txt3);border-color:transparent">—</button>`;
         let cls='repas-ok',txt='OK';
-        if(abs){cls='repas-abs';txt='ABS'}else if(pn){cls='repas-pn';txt='PN'}
+        if(abs){cls='repas-abs';txt='ABS'}
+        else if(pn){cls='repas-pn';txt='PN'}
+        else if(delLieuId){
+          const dl=S.lieux.find(l=>l.id===delLieuId);
+          cls='repas-deloc';txt='→ '+(dl?.nom||'?');
+        }
 
         // CAS 1 : Absence planifiée → toujours bloqué pour tous
         if(planned){
@@ -1741,19 +2184,19 @@ function renderCommande(){
 
         // CAS 3 : Jour passé + admin → cliquable, fond légèrement grisé pour indiquer que c'est passé
         if(isPast&&isAdminUser&&!cmdSent){
-          return`<button class="repas-btn ${cls}" onclick="togglePresence('${pid}',${di},'${svc}')" style="opacity:.7;border-style:dashed" title="Jour passé — modifiable (admin)">${txt}</button>`;
+          return`<button class="repas-btn ${cls}" onclick="togglePresence('${pid}',${di},'${svc}')" style="opacity:.7;border-style:dashed;font-size:10px" title="Jour passé — modifiable (admin)">${txt}</button>`;
         }
 
         // CAS 4 : Commande envoyée (passé ou futur) → cadenas orange, cliquable pour tous
         if(cmdSent){
-          return`<button class="repas-btn ${cls}" onclick="togglePresence('${pid}',${di},'${svc}')" style="outline:2px solid var(--amber);outline-offset:1px" title="Commande envoyée — modification signalée à la cuisine">${txt} 🔒</button>`;
+          return`<button class="repas-btn ${cls}" onclick="togglePresence('${pid}',${di},'${svc}')" style="outline:2px solid var(--amber);outline-offset:1px;font-size:10px" title="Commande envoyée — modification signalée à la cuisine">${txt} 🔒</button>`;
         }
 
         // CAS 5 : Normal → cliquable
-        return`<button class="repas-btn ${cls}" onclick="togglePresence('${pid}',${di},'${svc}')">${txt}</button>`;
+        return`<button class="repas-btn ${cls}" onclick="togglePresence('${pid}',${di},'${svc}')" style="font-size:10px">${txt}</button>`;
       };
       
-      h+=`<td colspan="2" style="padding:0"><div style="display:flex"><div style="width:50%;padding:3px;border-right:1px solid var(--border)">${mkBtn(mAbs,mPn,mPl,past,mHab,'midi')}</div><div style="width:50%;padding:3px">${mkBtn(sAbs,sPn,sPl,past,sHab,'soir')}</div></div></td>`;
+      h+=`<td colspan="2" style="padding:0"><div style="display:flex"><div style="width:50%;padding:3px;border-right:1px solid var(--border)">${mkBtn(mAbs,mPn,mPl,past,mHab,'midi',mDel)}</div><div style="width:50%;padding:3px">${mkBtn(sAbs,sPn,sPl,past,sHab,'soir',sDel)}</div></div></td>`;
     });
     h+=`</tr>`;
   });
@@ -1812,13 +2255,11 @@ function renderTotaux(){
       const jS={jour:DAYS[di],service:'Soir',regimes:{},pnRegimes:{},tem:0};
       
       sites[siteName].forEach(lieu=>{
-        S.residents.filter(r=>S.affectations[r.id]?.midi===lieu.id).forEach(p=>{
-          const abs=S.absences[w]?.[p.id]||[];
-          if(!abs[di*2]){const pk=`${p.id}_${di}_midi`,isPn=S.piquenique[w]?.[pk];const k=`${p.regime}${p.special?' + '+p.special:''}`;if(isPn){pnSet.add(k);jM.pnRegimes[k]=(jM.pnRegimes[k]||0)+1}else{regSet.add(k);jM.regimes[k]=(jM.regimes[k]||0)+1}}
+        S.residents.forEach(p=>{
+          if(getEffectiveLieu(p.id,di,'midi',S.affectations[p.id]?.midi)===lieu.id&&!isAbsentSlot(p.id,di,'midi')){const pk=`${p.id}_${di}_midi`,isPn=S.piquenique[w]?.[pk];const k=`${p.regime}${p.special?' + '+p.special:''}`;if(isPn){pnSet.add(k);jM.pnRegimes[k]=(jM.pnRegimes[k]||0)+1}else{regSet.add(k);jM.regimes[k]=(jM.regimes[k]||0)+1}}
         });
-        S.residents.filter(r=>S.affectations[r.id]?.soir===lieu.id).forEach(p=>{
-          const abs=S.absences[w]?.[p.id]||[];
-          if(!abs[di*2+1]){const pk=`${p.id}_${di}_soir`,isPn=S.piquenique[w]?.[pk];const k=`${p.regime}${p.special?' + '+p.special:''}`;if(isPn){pnSet.add(k);jS.pnRegimes[k]=(jS.pnRegimes[k]||0)+1}else{regSet.add(k);jS.regimes[k]=(jS.regimes[k]||0)+1}}
+        S.residents.forEach(p=>{
+          if(getEffectiveLieu(p.id,di,'soir',S.affectations[p.id]?.soir)===lieu.id&&!isAbsentSlot(p.id,di,'soir')){const pk=`${p.id}_${di}_soir`,isPn=S.piquenique[w]?.[pk];const k=`${p.regime}${p.special?' + '+p.special:''}`;if(isPn){pnSet.add(k);jS.pnRegimes[k]=(jS.pnRegimes[k]||0)+1}else{regSet.add(k);jS.regimes[k]=(jS.regimes[k]||0)+1}}
         });
         (S.temporaires||[]).filter(t=>isTempoActive(t,S.currentWeek,S.currentYear)).forEach(t=>{
           if(t.lieuMidi===lieu.id){const ms=di*2;if(!t.habitudes||t.habitudes[ms]!==false){const pk=`${t.id}_${di}_midi`,isPn=S.piquenique[w]?.[pk];const k=`${t.regime}${t.special?' + '+t.special:''}`;if(isPn){pnSet.add(k);jM.pnRegimes[k]=(jM.pnRegimes[k]||0)+1}else{regSet.add(k);jM.regimes[k]=(jM.regimes[k]||0)+1}}}
@@ -1826,13 +2267,13 @@ function renderTotaux(){
         });
         S.groupes.filter(g=>g.lieuId===lieu.id).forEach(g=>{
           regSet.add('Normal');
-          jM.regimes['Normal']=(jM.regimes['Normal']||0)+(g.vals?.[di]||0);
-          jS.regimes['Normal']=(jS.regimes['Normal']||0)+(g.valsSoir?.[di]||0);
+          jM.regimes['Normal']=(jM.regimes['Normal']||0)+getGrpVal(g,'vals',di);
+          jS.regimes['Normal']=(jS.regimes['Normal']||0)+getGrpVal(g,'valsSoir',di);
           // Pique-nique personnel
-          if((g.valsPn?.[di]||0)+(g.valsSoirPn?.[di]||0)>0){
+          if(getGrpVal(g,'valsPn',di)+getGrpVal(g,'valsSoirPn',di)>0){
             pnSet.add('Normal');
-            jM.pnRegimes['Normal']=(jM.pnRegimes['Normal']||0)+(g.valsPn?.[di]||0);
-            jS.pnRegimes['Normal']=(jS.pnRegimes['Normal']||0)+(g.valsSoirPn?.[di]||0);
+            jM.pnRegimes['Normal']=(jM.pnRegimes['Normal']||0)+getGrpVal(g,'valsPn',di);
+            jS.pnRegimes['Normal']=(jS.pnRegimes['Normal']||0)+getGrpVal(g,'valsSoirPn',di);
           }
         });
       });
@@ -1887,31 +2328,29 @@ function confirmPrint(){
     sites[siteName].forEach(lieu=>{
       for(let di=0;di<7;di++){
         const addP=(p,svc)=>{
-          const slot=di*2+(svc==='soir'?1:0);
-          const abs=S.absences[w]?.[p.id]||[];
-          if(abs[slot])return;
+          if(isAbsentSlot(p.id,di,svc))return;
           const pk=`${p.id}_${di}_${svc}`,isPn=S.piquenique[w]?.[pk];
           const k=`${p.regime}${p.special?' + '+p.special:''}`;
           const map=isPn?pnMap:regMap;
           if(!map.has(k))map.set(k,{midi:Array(7).fill(0),soir:Array(7).fill(0)});
           map.get(k)[svc][di]++;
         };
-        S.residents.filter(r=>S.affectations[r.id]?.midi===lieu.id).forEach(p=>addP(p,'midi'));
-        S.residents.filter(r=>S.affectations[r.id]?.soir===lieu.id).forEach(p=>addP(p,'soir'));
+        S.residents.filter(p=>getEffectiveLieu(p.id,di,'midi',S.affectations[p.id]?.midi)===lieu.id).forEach(p=>addP(p,'midi'));
+        S.residents.filter(p=>getEffectiveLieu(p.id,di,'soir',S.affectations[p.id]?.soir)===lieu.id).forEach(p=>addP(p,'soir'));
         (S.temporaires||[]).filter(t=>isTempoActive(t,week,year)).forEach(t=>{
           if(t.lieuMidi===lieu.id&&(!t.habitudes||t.habitudes[di*2]!==false))addP(t,'midi');
           if(t.lieuSoir===lieu.id&&(!t.habitudes||t.habitudes[di*2+1]!==false))addP(t,'soir');
         });
         S.groupes.filter(g=>g.lieuId===lieu.id).forEach(g=>{
           if(!regMap.has('Normal'))regMap.set('Normal',{midi:Array(7).fill(0),soir:Array(7).fill(0)});
-          regMap.get('Normal').midi[di]+=(g.vals?.[di]||0);
-          regMap.get('Normal').soir[di]+=(g.valsSoir?.[di]||0);
+          regMap.get('Normal').midi[di]+=getGrpVal(g,'vals',di);
+          regMap.get('Normal').soir[di]+=getGrpVal(g,'valsSoir',di);
           // Pique-nique personnel = compte comme repas envoyé
           // PN personnel → dans pnMap comme les résidents
-          if((g.valsPn?.[di]||0)+(g.valsSoirPn?.[di]||0)>0){
+          if(getGrpVal(g,'valsPn',di)+getGrpVal(g,'valsSoirPn',di)>0){
             if(!pnMap.has('Normal'))pnMap.set('Normal',{midi:Array(7).fill(0),soir:Array(7).fill(0)});
-            pnMap.get('Normal').midi[di]+=(g.valsPn?.[di]||0);
-            pnMap.get('Normal').soir[di]+=(g.valsSoirPn?.[di]||0);
+            pnMap.get('Normal').midi[di]+=getGrpVal(g,'valsPn',di);
+            pnMap.get('Normal').soir[di]+=getGrpVal(g,'valsSoirPn',di);
           }
         });
       }
@@ -1961,30 +2400,29 @@ function buildCommandeHTML(){
     sites[siteName].forEach(lieu=>{
       for(let di=0;di<7;di++){
         const addP=(p,svc)=>{
-          const slot=di*2+(svc==='soir'?1:0);
-          const abs=S.absences[w]?.[p.id]||[];if(abs[slot])return;
+          if(isAbsentSlot(p.id,di,svc))return;
           const pk=`${p.id}_${di}_${svc}`,isPn=S.piquenique[w]?.[pk];
           const k=`${p.regime}${p.special?' + '+p.special:''}`;
           const map=isPn?pnMap:regMap;
           if(!map.has(k))map.set(k,{midi:Array(7).fill(0),soir:Array(7).fill(0)});
           map.get(k)[svc][di]++;
         };
-        S.residents.filter(r=>S.affectations[r.id]?.midi===lieu.id).forEach(p=>addP(p,'midi'));
-        S.residents.filter(r=>S.affectations[r.id]?.soir===lieu.id).forEach(p=>addP(p,'soir'));
+        S.residents.filter(p=>getEffectiveLieu(p.id,di,'midi',S.affectations[p.id]?.midi)===lieu.id).forEach(p=>addP(p,'midi'));
+        S.residents.filter(p=>getEffectiveLieu(p.id,di,'soir',S.affectations[p.id]?.soir)===lieu.id).forEach(p=>addP(p,'soir'));
         (S.temporaires||[]).filter(t=>isTempoActive(t,week,year)).forEach(t=>{
           if(t.lieuMidi===lieu.id&&(!t.habitudes||t.habitudes[di*2]!==false))addP(t,'midi');
           if(t.lieuSoir===lieu.id&&(!t.habitudes||t.habitudes[di*2+1]!==false))addP(t,'soir');
         });
         S.groupes.filter(g=>g.lieuId===lieu.id).forEach(g=>{
           if(!regMap.has('Normal'))regMap.set('Normal',{midi:Array(7).fill(0),soir:Array(7).fill(0)});
-          regMap.get('Normal').midi[di]+=(g.vals?.[di]||0);
-          regMap.get('Normal').soir[di]+=(g.valsSoir?.[di]||0);
+          regMap.get('Normal').midi[di]+=getGrpVal(g,'vals',di);
+          regMap.get('Normal').soir[di]+=getGrpVal(g,'valsSoir',di);
           // Pique-nique personnel = compte comme repas envoyé
           // PN personnel → dans pnMap comme les résidents
-          if((g.valsPn?.[di]||0)+(g.valsSoirPn?.[di]||0)>0){
+          if(getGrpVal(g,'valsPn',di)+getGrpVal(g,'valsSoirPn',di)>0){
             if(!pnMap.has('Normal'))pnMap.set('Normal',{midi:Array(7).fill(0),soir:Array(7).fill(0)});
-            pnMap.get('Normal').midi[di]+=(g.valsPn?.[di]||0);
-            pnMap.get('Normal').soir[di]+=(g.valsSoirPn?.[di]||0);
+            pnMap.get('Normal').midi[di]+=getGrpVal(g,'valsPn',di);
+            pnMap.get('Normal').soir[di]+=getGrpVal(g,'valsSoirPn',di);
           }
         });
       }
@@ -2093,45 +2531,69 @@ async function doSendEmail(){
 // ============================================================
 function calcTotauxByLieu(weekData){
   const totaux={};
+  // Fonction locale pour lire la valeur effective d'un groupe à partir du snapshot fourni
+  // (au lieu de S.groupesOverrides en direct, pour figer "l'avant" correctement)
+  const getGrpValSnap=(g, field, dayIdx)=>{
+    const ov = weekData.groupesOverrides?.[g.id]?.[field]?.[dayIdx];
+    if(ov !== undefined && ov !== null) return ov;
+    return (g[field]||Array(7).fill(0))[dayIdx] || 0;
+  };
   S.lieux.filter(l=>!l.isStaffOnly).forEach(lieu=>{
     const regMap=new Map();
+    const pnMap=new Map();
     for(let di=0;di<7;di++){
       const addP=(p,svc)=>{
         const slot=di*2+(svc==='soir'?1:0);
         const abs=weekData.absences[p.id]||[];if(abs[slot])return;
         const pk=`${p.id}_${di}_${svc}`,isPn=weekData.piquenique?.[pk]||false;
-        if(isPn)return;
         const k=`${p.regime}${p.special?' + '+p.special:''}`;
-        if(!regMap.has(k))regMap.set(k,{midi:Array(7).fill(0),soir:Array(7).fill(0)});
-        regMap.get(k)[svc][di]++;
+        const targetMap=isPn?pnMap:regMap;
+        if(!targetMap.has(k))targetMap.set(k,{midi:Array(7).fill(0),soir:Array(7).fill(0)});
+        targetMap.get(k)[svc][di]++;
       };
-      S.residents.filter(r=>S.affectations[r.id]?.midi===lieu.id).forEach(p=>addP(p,'midi'));
-      S.residents.filter(r=>S.affectations[r.id]?.soir===lieu.id).forEach(p=>addP(p,'soir'));
+      const getEffLieuSnap=(p,svc,defaultLieuId)=>{
+        const pk=`${p.id}_${di}_${svc}`;
+        const del=weekData.delocalisations?.[pk];
+        return del||defaultLieuId;
+      };
+      S.residents.filter(p=>getEffLieuSnap(p,'midi',S.affectations[p.id]?.midi)===lieu.id).forEach(p=>addP(p,'midi'));
+      S.residents.filter(p=>getEffLieuSnap(p,'soir',S.affectations[p.id]?.soir)===lieu.id).forEach(p=>addP(p,'soir'));
       (S.temporaires||[]).filter(t=>isTempoActive(t,S.currentWeek,S.currentYear)).forEach(t=>{
         if(t.lieuMidi===lieu.id&&(!t.habitudes||t.habitudes[di*2]!==false))addP(t,'midi');
         if(t.lieuSoir===lieu.id&&(!t.habitudes||t.habitudes[di*2+1]!==false))addP(t,'soir');
       });
       S.groupes.filter(g=>g.lieuId===lieu.id).forEach(g=>{
         if(!regMap.has('Normal'))regMap.set('Normal',{midi:Array(7).fill(0),soir:Array(7).fill(0)});
-        regMap.get('Normal').midi[di]+=(g.vals?.[di]||0);regMap.get('Normal').soir[di]+=(g.valsSoir?.[di]||0);
+        regMap.get('Normal').midi[di]+=getGrpValSnap(g,'vals',di);regMap.get('Normal').soir[di]+=getGrpValSnap(g,'valsSoir',di);
+        if(getGrpValSnap(g,'valsPn',di)+getGrpValSnap(g,'valsSoirPn',di)>0){
+          if(!pnMap.has('Normal'))pnMap.set('Normal',{midi:Array(7).fill(0),soir:Array(7).fill(0)});
+          pnMap.get('Normal').midi[di]+=getGrpValSnap(g,'valsPn',di);
+          pnMap.get('Normal').soir[di]+=getGrpValSnap(g,'valsSoirPn',di);
+        }
       });
     }
     totaux[lieu.nom]=regMap;
+    totaux[lieu.nom+'__PN']=pnMap;
   });
   return totaux;
+}
+
+
+function getNextBonNumber(week, year){
+  const existing = (S.bonsModification || []).filter(b => b.week === week && b.year === year);
+  const maxNum = existing.reduce((max, b) => Math.max(max, b.bonNumber || 0), 0);
+  return maxNum + 1;
 }
 
 function genererBon(){
   const w=wk(),week=S.currentWeek,year=S.currentYear;
   if(!S.printHistory[w]?.modifications?.length){toast('Aucune modification','warn');return}
-  if(!S.printHistory[w].bonCounter)S.printHistory[w].bonCounter=0;
-  S.printHistory[w].bonCounter++;
-  const bonNum=S.printHistory[w].bonCounter;
+  const bonNum=getNextBonNumber(week,year);
   const mon=getDateForDay(week,0),sun=getDateForDay(week,6);
   const dd=fmtDate(mon.toISOString()),df=fmtDate(sun.toISOString());
   
   const snapInit=S.printHistory[w].snapshot;
-  const snapCur={absences:JSON.parse(JSON.stringify(S.absences[w]||{})),piquenique:JSON.parse(JSON.stringify(S.piquenique[w]||{}))};
+  const snapCur={absences:JSON.parse(JSON.stringify(S.absences[w]||{})),piquenique:JSON.parse(JSON.stringify(S.piquenique[w]||{})),groupesOverrides:JSON.parse(JSON.stringify(S.groupesOverrides?.[w]||{})),delocalisations:JSON.parse(JSON.stringify(S.delocalisations?.[w]||{}))};
   S.printHistory[w].snapshot=snapCur;save('print_history');
   
   const tAvant=calcTotauxByLieu(snapInit),tApres=calcTotauxByLieu(snapCur);
@@ -2317,21 +2779,42 @@ function renderAbsences(){
   const search=($('abs-search')?.value||'').toLowerCase();
   const abs=(S.plannedAbsences||[]).filter(a=>!search||S.residents.find(r=>r.id===a.residentId)?.nom.toLowerCase().includes(search));
   $('abs-count').textContent=abs.length;
-  
-  let h=`<table><thead><tr><th>Résident</th><th>Motif</th><th>Du</th><th>Au</th><th>Services</th><th style="text-align:right">Actions</th></tr></thead><tbody>`;
-  if(!abs.length)h+=`<tr><td colspan="6" class="empty-state">Aucune absence planifiée</td></tr>`;
+
+  const depLabels={avant:'Dès le matin',midi:'Après le midi',soir:'Après le soir'};
+  const finLabels={soir:'Le soir',midi:'Avant le midi',apres:'Avant le matin'};
+
+  let h=`<table><thead><tr><th>Résident</th><th>Motif</th><th>Départ</th><th>Retour</th><th style="text-align:right">Actions</th></tr></thead><tbody>`;
+  if(!abs.length)h+=`<tr><td colspan="5" class="empty-state">Aucune absence planifiée</td></tr>`;
   abs.forEach(a=>{
     const r=S.residents.find(x=>x.id===a.residentId);
-    h+=`<tr><td style="font-weight:600">${r?.nom||'—'}</td><td>${a.motif||'—'}</td><td>${fmtDate(a.debut)}</td><td>${fmtDate(a.fin)}</td>`;
-    h+=`<td>${[a.midi?'Midi':'',a.soir?'Soir':''].filter(Boolean).join(', ')||'—'}</td>`;
-    h+=`<td style="text-align:right"><button class="action-btn" onclick="deleteAbsence('${a.id}')">🗑️</button></td></tr>`;
+    const depRepas=a.debRepas||'midi', finRepas=a.finRepas||'midi';
+    h+=`<tr><td style="font-weight:600">${r?.nom||'—'}</td><td>${a.motif||'—'}</td>`;
+    h+=`<td>${fmtDate(a.debut)}<div style="font-size:11px;color:var(--txt3)">${depLabels[depRepas]||depRepas}</div></td>`;
+    h+=`<td>${fmtDate(a.fin)}<div style="font-size:11px;color:var(--txt3)">${finLabels[finRepas]||finRepas}</div></td>`;
+    h+=`<td style="text-align:right"><button class="action-btn" onclick="openAbsenceModal('${a.id}')" title="Modifier">✏️</button> <button class="action-btn" onclick="deleteAbsence('${a.id}')" title="Supprimer">🗑️</button></td></tr>`;
   });
   h+=`</tbody></table>`;$('abs-table').innerHTML=h;
 }
 
-function openAbsenceModal(){
-  $('a-id').value='';$('a-note').value='';$('a-deb').value='';$('a-fin').value='';$('a-midi').checked=true;$('a-soir').checked=true;
+function openAbsenceModal(id){
   $('a-res').innerHTML=S.residents.map(r=>`<option value="${r.id}">${r.nom}</option>`).join('');
+  if(id){
+    const a=(S.plannedAbsences||[]).find(x=>x.id===id);
+    if(!a)return;
+    $('mat').textContent="Modifier l'absence planifiée";
+    $('a-id').value=id;
+    $('a-res').value=a.residentId;
+    $('a-mot').value=a.motif||'Congés';
+    $('a-note').value=a.note||'';
+    $('a-deb').value=a.debut;
+    $('a-fin').value=a.fin;
+    $('a-deb-repas').value=a.debRepas||'midi';
+    $('a-fin-repas').value=a.finRepas||'midi';
+  } else {
+    $('mat').textContent='Absence planifiée';
+    $('a-id').value='';$('a-note').value='';$('a-deb').value='';$('a-fin').value='';
+    $('a-deb-repas').value='midi';$('a-fin-repas').value='midi';
+  }
   openModal('modal-absence');
 }
 
@@ -2340,8 +2823,26 @@ function saveAbsence(){
   const rid=$('a-res').value,deb=$('a-deb').value,fin=$('a-fin').value;
   if(!rid||!deb||!fin){toast('Champs requis manquants','error');return}
   if(!S.plannedAbsences)S.plannedAbsences=[];
-  S.plannedAbsences.push({id:uid(),residentId:rid,motif:$('a-mot').value,note:$('a-note').value.trim(),debut:deb,fin:fin,midi:$('a-midi').checked,soir:$('a-soir').checked});
-  const absRes=S.residents.find(r=>r.id===rid);auditLog('ABSENCE_PLANIFIEE_AJOUTEE',{resident:absRes?.nom||rid,debut:deb,fin:fin});save('absences_planifiees');closeModal('modal-absence');renderAbsences();toast('Absence enregistrée','success');
+  const eid=$('a-id').value;
+  const data={
+    residentId:rid,
+    motif:$('a-mot').value,
+    note:$('a-note').value.trim(),
+    debut:deb,
+    fin:fin,
+    debRepas:$('a-deb-repas').value,
+    finRepas:$('a-fin-repas').value
+  };
+  const absRes=S.residents.find(r=>r.id===rid);
+  if(eid){
+    const i=S.plannedAbsences.findIndex(a=>a.id===eid);
+    if(i>=0)S.plannedAbsences[i]={...S.plannedAbsences[i],...data};
+    auditLog('ABSENCE_PLANIFIEE_MODIFIEE',{resident:absRes?.nom||rid,debut:deb,fin:fin});
+  } else {
+    S.plannedAbsences.push({id:uid(),...data});
+    auditLog('ABSENCE_PLANIFIEE_AJOUTEE',{resident:absRes?.nom||rid,debut:deb,fin:fin});
+  }
+  save('absences_planifiees');closeModal('modal-absence');renderAbsences();toast('Absence enregistrée','success');
 }
 
 function deleteAbsence(id){showConfirm('Supprimer cette absence ?','',async()=>{
@@ -2438,41 +2939,103 @@ function deleteLieu(id){showConfirm('Supprimer ce lieu ?','Les résidents affect
 // ============================================================
 function renderGroupes(){
   const c=$('grp-content');if(!c)return;
+  updateModifSendBtn();
   if(!S.groupes?.length){c.innerHTML=`<div class="empty-state"><div style="font-size:48px;margin-bottom:12px">👨‍🍳</div><p>Aucun groupe</p></div>`;return}
+  const isAdminUser=currentUser&&(currentUser.role==='responsable'||currentUser.role==='superadmin');
+  const cmdSent=!!(S.printHistory?.[wk()]?.printDate);
   let h='';
+  if(!isAdminUser){
+    h+=`<div class="info-box" style="margin-bottom:16px">💡 Les modèles récurrents (valeurs par défaut) ne peuvent être modifiés que par un Responsable ou Super Admin. Vous pouvez ajuster les effectifs du jour pour la semaine en cours.</div>`;
+  }
   S.groupes.forEach(g=>{
-    const tM=(g.vals||[]).reduce((a,b)=>a+b,0),tS=(g.valsSoir||[]).reduce((a,b)=>a+b,0);
-    const tPM=(g.valsPn||[]).reduce((a,b)=>a+b,0),tPS=(g.valsSoirPn||[]).reduce((a,b)=>a+b,0);
+    let tM=0,tS=0,tPM=0,tPS=0;
+    for(let i=0;i<7;i++){tM+=getGrpVal(g,'vals',i);tS+=getGrpVal(g,'valsSoir',i);tPM+=getGrpVal(g,'valsPn',i);tPS+=getGrpVal(g,'valsSoirPn',i)}
     h+=`<div class="groupe-card"><div class="groupe-head">`;
-    h+=`<input type="text" value="${g.nom}" onchange="updGrpNom('${g.id}',this.value)" style="flex:1;background:transparent;border:1px solid var(--border);border-radius:8px;padding:6px 12px;color:var(--txt);font-size:15px;font-weight:700;outline:none;font-family:inherit">`;
-    h+=`<select onchange="updGrpLieu('${g.id}',this.value)" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:6px 10px;color:var(--txt2);font-size:12px;outline:none;font-family:inherit"><option value="">— Lieu —</option>${S.lieux.map(l=>`<option value="${l.id}" ${l.id===g.lieuId?'selected':''}>${l.nom}</option>`).join('')}</select>`;
-    h+=`<span style="color:var(--txt3);font-size:11px">${tM+tS} repas</span>`;
-    h+=`<button class="action-btn" onclick="deleteGroupe('${g.id}')">🗑️</button></div>`;
+    if(isAdminUser){
+      h+=`<input type="text" value="${g.nom}" onchange="updGrpNom('${g.id}',this.value)" style="flex:1;background:transparent;border:1px solid var(--border);border-radius:8px;padding:6px 12px;color:var(--txt);font-size:15px;font-weight:700;outline:none;font-family:inherit">`;
+      h+=`<select onchange="updGrpLieu('${g.id}',this.value)" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:6px 10px;color:var(--txt2);font-size:12px;outline:none;font-family:inherit"><option value="">— Lieu —</option>${S.lieux.map(l=>`<option value="${l.id}" ${l.id===g.lieuId?'selected':''}>${l.nom}</option>`).join('')}</select>`;
+    } else {
+      const lieu=getLieu(g.lieuId);
+      h+=`<strong style="flex:1;font-size:15px">${g.nom}</strong>`;
+      h+=`<span style="font-size:12px;color:var(--txt3)">${lieu?.nom||'—'}</span>`;
+    }
+    h+=`<span style="color:var(--txt3);font-size:11px">${tM+tS} repas cette semaine</span>`;
+    if(isAdminUser)h+=`<button class="action-btn" onclick="deleteGroupe('${g.id}')">🗑️</button>`;
+    h+=`</div>`;
     h+=`<div style="overflow-x:auto"><table style="min-width:820px"><thead><tr><th style="min-width:100px;width:100px">Type</th>`;
     DAYS_S.forEach((d,i)=>h+=`<th colspan="2" style="text-align:center;color:${DAY_C[i]};min-width:84px">${d}<div style="display:flex;justify-content:space-around;font-size:8px;margin-top:2px"><span>M</span><span>S</span></div></th>`);
     h+=`<th style="text-align:center">Total</th></tr></thead><tbody>`;
-    h+=grpRow(g,'vals','valsSoir','🍽 Repas',tM+tS,false);
-    h+=grpRow(g,'valsPn','valsSoirPn','🧺 Pic Nic',tPM+tPS,true);
+    h+=grpRow(g,'vals','valsSoir','🍽 Repas',tM+tS,false,isAdminUser,cmdSent);
+    h+=grpRow(g,'valsPn','valsSoirPn','🧺 Pic Nic',tPM+tPS,true,isAdminUser,cmdSent);
     h+=`</tbody></table></div></div>`;
   });
   c.innerHTML=h;
 }
 
-function grpRow(g,fm,fs,label,total,isPn){
-  const vm=g[fm]||Array(7).fill(0),vs=g[fs]||Array(7).fill(0);
+function grpRow(g,fm,fs,label,total,isPn,isAdminUser,cmdSent){
   let cells='';
   for(let i=0;i<7;i++){
-    cells+=`<td colspan="2" style="padding:2px"><div style="display:flex;gap:2px"><div style="flex:1;padding:2px;border-right:1px solid var(--border)"><div class="nombre-cell"><button class="nombre-btn" onclick="updGrpVal('${g.id}','${fm}',${i},-1)">−</button><input class="nombre-input" value="${vm[i]}" onchange="setGrpVal('${g.id}','${fm}',${i},+this.value)"><button class="nombre-btn" onclick="updGrpVal('${g.id}','${fm}',${i},1)">+</button></div></div><div style="flex:1;padding:2px"><div class="nombre-cell"><button class="nombre-btn" onclick="updGrpVal('${g.id}','${fs}',${i},-1)">−</button><input class="nombre-input" value="${vs[i]}" onchange="setGrpVal('${g.id}','${fs}',${i},+this.value)"><button class="nombre-btn" onclick="updGrpVal('${g.id}','${fs}',${i},1)">+</button></div></div></div></td>`;
+    const past=isDatePast(i);
+    const vm=getGrpVal(g,fm,i), vs=getGrpVal(g,fs,i);
+    const ovM=hasGrpOverride(g,fm,i), ovS=hasGrpOverride(g,fs,i);
+
+    const mkCell=(field,val,hasOv,svc)=>{
+      // CAS 1 : jour passé, non admin → lecture seule grisée
+      if(past && !isAdminUser){
+        return `<div style="text-align:center;font-weight:700;font-size:13px;opacity:.4;padding:6px 0" title="Date passée">${val}</div>`;
+      }
+      // CAS 2 : jour passé, admin → modifiable, fond léger pour signaler "passé"
+      const lockStyle = cmdSent ? 'outline:2px solid var(--amber);outline-offset:1px;border-radius:6px' : '';
+      const pastStyle = (past && isAdminUser) ? 'opacity:.75;' : '';
+      const ovBadge = hasOv ? `<span style="position:absolute;top:-4px;right:-4px;width:8px;height:8px;border-radius:50%;background:var(--blue)" title="Valeur modifiée pour cette semaine"></span>` : '';
+      return `<div class="nombre-cell" style="position:relative;${pastStyle}${lockStyle}">${ovBadge}<button class="nombre-btn" onclick="updGrpVal('${g.id}','${field}',${i},-1)">−</button><input class="nombre-input" value="${val}" onchange="setGrpVal('${g.id}','${field}',${i},+this.value)"><button class="nombre-btn" onclick="updGrpVal('${g.id}','${field}',${i},1)">+</button></div>`;
+    };
+
+    cells+=`<td colspan="2" style="padding:2px"><div style="display:flex;gap:2px"><div style="flex:1;padding:2px;border-right:1px solid var(--border)">${mkCell(fm,vm,ovM,'midi')}</div><div style="flex:1;padding:2px">${mkCell(fs,vs,ovS,'soir')}</div></div></td>`;
   }
   return`<tr ${isPn?'style="background:var(--amber-bg)"':''}><td style="font-weight:600;color:${isPn?'var(--amber)':'var(--txt2)'}">${label}</td>${cells}<td style="text-align:center;font-weight:800;font-size:15px;position:sticky;right:0;background:${isPn?'var(--amber-bg)':' var(--card)'};box-shadow:-2px 0 4px rgba(0,0,0,.1);color:${isPn?'var(--amber)':' var(--blue)'};min-width:50px;padding:0 10px">${total}</td></tr>`;
 }
 
-function addGroupe(){S.groupes.push({id:uid(),nom:'Nouveau groupe',lieuId:'',vals:Array(7).fill(0),valsSoir:Array(7).fill(0),valsPn:Array(7).fill(0),valsSoirPn:Array(7).fill(0)});save('groupes');renderGroupes();toast('Groupe ajouté','success')}
-function updGrpNom(id,v){const g=S.groupes.find(x=>x.id===id);if(g){g.nom=v;save('groupes')}}
-function updGrpLieu(id,v){const g=S.groupes.find(x=>x.id===id);if(g){g.lieuId=v;save('groupes')}}
-function updGrpVal(id,field,idx,delta){const g=S.groupes.find(x=>x.id===id);if(g){if(!g[field])g[field]=Array(7).fill(0);g[field][idx]=Math.max(0,g[field][idx]+delta);save('groupes');renderGroupes()}}
-function setGrpVal(id,field,idx,val){const g=S.groupes.find(x=>x.id===id);if(g){if(!g[field])g[field]=Array(7).fill(0);g[field][idx]=Math.max(0,val||0);save('groupes');renderGroupes()}}
-function deleteGroupe(id){showConfirm('Supprimer ce groupe ?','',async()=>{
+function addGroupe(){
+  if(!currentUser||(currentUser.role!=='responsable'&&currentUser.role!=='superadmin')){toast('Accès non autorisé','error');return}
+  S.groupes.push({id:uid(),nom:'Nouveau groupe',lieuId:'',vals:Array(7).fill(0),valsSoir:Array(7).fill(0),valsPn:Array(7).fill(0),valsSoirPn:Array(7).fill(0)});
+  save('groupes');renderGroupes();toast('Groupe ajouté','success')
+}
+function updGrpNom(id,v){
+  if(!currentUser||(currentUser.role!=='responsable'&&currentUser.role!=='superadmin')){toast('Accès non autorisé','error');renderGroupes();return}
+  const g=S.groupes.find(x=>x.id===id);if(g){g.nom=v;save('groupes')}
+}
+function updGrpLieu(id,v){
+  if(!currentUser||(currentUser.role!=='responsable'&&currentUser.role!=='superadmin')){toast('Accès non autorisé','error');renderGroupes();return}
+  const g=S.groupes.find(x=>x.id===id);if(g){g.lieuId=v;save('groupes')}
+}
+
+// Modification ponctuelle pour la semaine en cours (tout utilisateur autorisé aux absences)
+function updGrpVal(id,field,idx,delta){
+  if(!getPerms().canAbsences&&!getPerms().canEdit){toast('Accès non autorisé','error');return}
+  const past=isDatePast(idx);
+  const isAdminUser=currentUser&&(currentUser.role==='responsable'||currentUser.role==='superadmin');
+  if(past&&!isAdminUser){toast('Jour passé — non modifiable','warn');return}
+  const g=S.groupes.find(x=>x.id===id);if(!g)return;
+  const current=getGrpVal(g,field,idx);
+  const newVal=Math.max(0,current+delta);
+  setGrpOverride(id,field,idx,newVal);
+  renderGroupes();
+}
+function setGrpVal(id,field,idx,val){
+  if(!getPerms().canAbsences&&!getPerms().canEdit){toast('Accès non autorisé','error');renderGroupes();return}
+  const past=isDatePast(idx);
+  const isAdminUser=currentUser&&(currentUser.role==='responsable'||currentUser.role==='superadmin');
+  if(past&&!isAdminUser){toast('Jour passé — non modifiable','warn');renderGroupes();return}
+  const g=S.groupes.find(x=>x.id===id);if(!g)return;
+  const newVal=Math.max(0,parseInt(val)||0);
+  setGrpOverride(id,field,idx,newVal);
+  renderGroupes();
+}
+
+function deleteGroupe(id){
+  if(!currentUser||(currentUser.role!=='responsable'&&currentUser.role!=='superadmin')){toast('Accès non autorisé','error');return}
+  showConfirm('Supprimer ce groupe ?','',async()=>{
   S.groupes=S.groupes.filter(g=>g.id!==id);
   if(db)await dbDelete('groupes',id);
   save('groupes');renderGroupes();toast('Groupe supprimé','success')
@@ -2498,8 +3061,8 @@ function renderMEPLieu(lieu){
   const addPN=(p,di,meal)=>{const k=`${p.regime}|${p.special||''}`;if(!svc.pn.has(k))svc.pn.set(k,{regime:p.regime,special:p.special||'',midi:Array(7).fill(0),soir:Array(7).fill(0)});svc.pn.get(k)[meal][di]++};
   
   for(let di=0;di<7;di++){
-    S.residents.filter(r=>S.affectations[r.id]?.midi===lieu.id).forEach(p=>{const abs=S.absences[w]?.[p.id]||[];if(!abs[di*2]){const pk=`${p.id}_${di}_midi`;if(S.piquenique[w]?.[pk])addPN(p,di,'midi');else addP(p,di,'midi')}});
-    S.residents.filter(r=>S.affectations[r.id]?.soir===lieu.id).forEach(p=>{const abs=S.absences[w]?.[p.id]||[];if(!abs[di*2+1]){const pk=`${p.id}_${di}_soir`;if(S.piquenique[w]?.[pk])addPN(p,di,'soir');else addP(p,di,'soir')}});
+    S.residents.filter(p=>getEffectiveLieu(p.id,di,'midi',S.affectations[p.id]?.midi)===lieu.id).forEach(p=>{if(!isAbsentSlot(p.id,di,'midi')){const pk=`${p.id}_${di}_midi`;if(S.piquenique[w]?.[pk])addPN(p,di,'midi');else addP(p,di,'midi')}});
+    S.residents.filter(p=>getEffectiveLieu(p.id,di,'soir',S.affectations[p.id]?.soir)===lieu.id).forEach(p=>{if(!isAbsentSlot(p.id,di,'soir')){const pk=`${p.id}_${di}_soir`;if(S.piquenique[w]?.[pk])addPN(p,di,'soir');else addP(p,di,'soir')}});
     (S.temporaires||[]).filter(t=>isTempoActive(t,S.currentWeek,S.currentYear)).forEach(t=>{
       if(t.lieuMidi===lieu.id&&(!t.habitudes||t.habitudes[di*2]!==false)){const pk=`${t.id}_${di}_midi`;if(S.piquenique[w]?.[pk])addPN(t,di,'midi');else addP(t,di,'midi')}
       if(t.lieuSoir===lieu.id&&(!t.habitudes||t.habitudes[di*2+1]!==false)){const pk=`${t.id}_${di}_soir`;if(S.piquenique[w]?.[pk])addPN(t,di,'soir');else addP(t,di,'soir')}
@@ -2507,12 +3070,12 @@ function renderMEPLieu(lieu){
     S.groupes.filter(g=>g.lieuId===lieu.id).forEach(g=>{
       const k='Normal|';
       if(!svc.regimes.has(k))svc.regimes.set(k,{regime:'Normal',special:'',midi:Array(7).fill(0),soir:Array(7).fill(0)});
-      svc.regimes.get(k).midi[di]+=(g.vals?.[di]||0);
-      svc.regimes.get(k).soir[di]+=(g.valsSoir?.[di]||0);
-      if((g.valsPn?.[di]||0)+(g.valsSoirPn?.[di]||0)>0){
+      svc.regimes.get(k).midi[di]+=getGrpVal(g,'vals',di);
+      svc.regimes.get(k).soir[di]+=getGrpVal(g,'valsSoir',di);
+      if(getGrpVal(g,'valsPn',di)+getGrpVal(g,'valsSoirPn',di)>0){
         if(!svc.pn.has(k))svc.pn.set(k,{regime:'Normal',special:'',midi:Array(7).fill(0),soir:Array(7).fill(0)});
-        svc.pn.get(k).midi[di]+=(g.valsPn?.[di]||0);
-        svc.pn.get(k).soir[di]+=(g.valsSoirPn?.[di]||0);
+        svc.pn.get(k).midi[di]+=getGrpVal(g,'valsPn',di);
+        svc.pn.get(k).soir[di]+=getGrpVal(g,'valsSoirPn',di);
       }
     });
   }
@@ -2632,8 +3195,8 @@ function printMEP(){
       const addP=(p,di,meal)=>{if(p.adapt){let a=svc.adaptations.find(x=>x.nom===p.nom);if(!a){a={nom:p.nom,adapt:p.adapt,regime:p.regime,midi:Array(7).fill(0),soir:Array(7).fill(0)};svc.adaptations.push(a)}a[meal][di]++}else{const k=`${p.regime}|${p.special||''}`;if(!svc.regimes.has(k))svc.regimes.set(k,{regime:p.regime,special:p.special||'',midi:Array(7).fill(0),soir:Array(7).fill(0)});svc.regimes.get(k)[meal][di]++}};
       const addPN=(p,di,meal)=>{const k=`${p.regime}|${p.special||''}`;if(!svc.pn.has(k))svc.pn.set(k,{regime:p.regime,special:p.special||'',midi:Array(7).fill(0),soir:Array(7).fill(0)});svc.pn.get(k)[meal][di]++};
       for(let di=0;di<7;di++){
-        S.residents.filter(r=>S.affectations[r.id]?.midi===lieu.id).forEach(p=>{const abs=S.absences[w]?.[p.id]||[];if(!abs[di*2]){const pk=`${p.id}_${di}_midi`;if(S.piquenique[w]?.[pk])addPN(p,di,'midi');else addP(p,di,'midi')}});
-        S.residents.filter(r=>S.affectations[r.id]?.soir===lieu.id).forEach(p=>{const abs=S.absences[w]?.[p.id]||[];if(!abs[di*2+1]){const pk=`${p.id}_${di}_soir`;if(S.piquenique[w]?.[pk])addPN(p,di,'soir');else addP(p,di,'soir')}});
+        S.residents.filter(p=>getEffectiveLieu(p.id,di,'midi',S.affectations[p.id]?.midi)===lieu.id).forEach(p=>{if(!isAbsentSlot(p.id,di,'midi')){const pk=`${p.id}_${di}_midi`;if(S.piquenique[w]?.[pk])addPN(p,di,'midi');else addP(p,di,'midi')}});
+        S.residents.filter(p=>getEffectiveLieu(p.id,di,'soir',S.affectations[p.id]?.soir)===lieu.id).forEach(p=>{if(!isAbsentSlot(p.id,di,'soir')){const pk=`${p.id}_${di}_soir`;if(S.piquenique[w]?.[pk])addPN(p,di,'soir');else addP(p,di,'soir')}});
         (S.temporaires||[]).filter(t=>isTempoActive(t,week,year)).forEach(t=>{
           if(t.lieuMidi===lieu.id&&(!t.habitudes||t.habitudes[di*2]!==false)){const pk=`${t.id}_${di}_midi`;if(S.piquenique[w]?.[pk])addPN(t,di,'midi');else addP(t,di,'midi')}
           if(t.lieuSoir===lieu.id&&(!t.habitudes||t.habitudes[di*2+1]!==false)){const pk=`${t.id}_${di}_soir`;if(S.piquenique[w]?.[pk])addPN(t,di,'soir');else addP(t,di,'soir')}
@@ -2646,12 +3209,12 @@ function printMEP(){
         S.groupes.filter(g=>g.lieuId===lieu.id).forEach(g=>{
           const k='Normal|';
           if(!svc.regimes.has(k))svc.regimes.set(k,{regime:'Normal',special:'',midi:Array(7).fill(0),soir:Array(7).fill(0)});
-          svc.regimes.get(k).midi[di]+=(g.vals?.[di]||0);
-          svc.regimes.get(k).soir[di]+=(g.valsSoir?.[di]||0);
-          if((g.valsPn?.[di]||0)+(g.valsSoirPn?.[di]||0)>0){
+          svc.regimes.get(k).midi[di]+=getGrpVal(g,'vals',di);
+          svc.regimes.get(k).soir[di]+=getGrpVal(g,'valsSoir',di);
+          if(getGrpVal(g,'valsPn',di)+getGrpVal(g,'valsSoirPn',di)>0){
             if(!svc.pn.has(k))svc.pn.set(k,{regime:'Normal',special:'',midi:Array(7).fill(0),soir:Array(7).fill(0)});
-            svc.pn.get(k).midi[di]+=(g.valsPn?.[di]||0);
-            svc.pn.get(k).soir[di]+=(g.valsSoirPn?.[di]||0);
+            svc.pn.get(k).midi[di]+=getGrpVal(g,'valsPn',di);
+            svc.pn.get(k).soir[di]+=getGrpVal(g,'valsSoirPn',di);
           }
         });
       }
@@ -2738,15 +3301,159 @@ function renderHist(){
   const c=$('hist-content');if(!c)return;
   const bons=(S.bonsModification||[]).filter(b=>b.week===S.currentWeek&&b.year===S.currentYear).sort((a,b)=>new Date(b.date)-new Date(a.date));
   if(!bons.length){c.innerHTML='<div class="empty-state">Aucun bon de modification pour cette semaine</div>';return}
-  let h='<div class="table-box"><table><thead><tr><th>N°</th><th>Date</th><th>Période</th><th>Modifications</th><th style="text-align:right">Actions</th></tr></thead><tbody>';
+  let h='<div class="table-box"><table><thead><tr><th>N°</th><th>Créé le</th><th>Période</th><th>Modifications</th><th>Statut</th><th style="text-align:right">Actions</th></tr></thead><tbody>';
   bons.forEach(b=>{
     const d=new Date(b.date);
-    const emailTag=b.sentByEmail?`<span class="badge" style="background:var(--green-bg);color:var(--green);margin-left:6px">📧 Envoyé cuisine</span>`:'';
-    const byTag=b.sentBy?`<span style="font-size:11px;color:var(--txt3)"> par ${b.sentBy}</span>`:'';
-    h+=`<tr><td style="font-weight:700">N°${b.bonNumber}</td><td>${d.toLocaleDateString('fr-FR')} ${d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}${byTag}</td><td>S${b.week} (${b.dateDebut} → ${b.dateFin})</td><td><span class="badge" style="background:var(--amber-bg);color:var(--amber)">${b.modificationsCount} modif${b.modificationsCount>1?'s':''}</span>${emailTag}</td>`;
-    h+=`<td style="text-align:right"><button class="action-btn" onclick="deleteBon('${b.id}')" title="Supprimer">🗑️</button></td></tr>`;
+    const hist=b.sendHistory||(b.sentByEmail?[{date:b.date,by:b.sentBy||'—',type:'initial'}]:[]);
+    let statutHTML;
+    if(!hist.length){
+      statutHTML=`<span class="badge" style="background:var(--bg);color:var(--txt3)">Non envoyé</span>`;
+    } else {
+      const last=hist[hist.length-1];
+      const ld=new Date(last.date);
+      const label=last.type==='renvoi'?'🔁 Renvoyé':'📧 Envoyé';
+      const countTag=hist.length>1?` <span style="font-size:10px;color:var(--txt3)">(${hist.length}x)</span>`:'';
+      statutHTML=`<span class="badge" style="background:var(--green-bg);color:var(--green)">${label}</span>${countTag}<div style="font-size:10px;color:var(--txt3);margin-top:2px">${ld.toLocaleDateString('fr-FR')} ${ld.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})} par ${last.by}</div>`;
+    }
+    h+=`<tr><td style="font-weight:700">N°${b.bonNumber}</td><td>${d.toLocaleDateString('fr-FR')} ${d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</td><td>S${b.week} (${b.dateDebut} → ${b.dateFin})</td><td><span class="badge" style="background:var(--amber-bg);color:var(--amber)">${b.modificationsCount} modif${b.modificationsCount>1?'s':''}</span></td><td>${statutHTML}</td>`;
+    h+=`<td style="text-align:right"><button class="action-btn" onclick="voirBon('${b.id}')" title="Voir le détail">👁️</button> <button class="action-btn" onclick="renvoyerBon('${b.id}')" title="Renvoyer à la cuisine">📧</button> <button class="action-btn" onclick="deleteBon('${b.id}')" title="Supprimer">🗑️</button></td></tr>`;
   });
   h+=`</tbody></table></div>`;c.innerHTML=h;
+}
+
+
+
+let _renvoiBonId=null;
+
+function renvoyerBon(id){
+  const b=(S.bonsModification||[]).find(x=>x.id===id);
+  if(!b)return;
+  _renvoiBonId=id;
+  $('renvoi-bon-info').innerHTML=`Vous allez renvoyer le <strong>Bon N°${b.bonNumber}</strong> (Semaine ${b.week}/${b.year}) à <strong>${EMAIL_CUISINE}</strong>${EMAIL_CC?' (cc: '+EMAIL_CC+')':''}.`;
+  $('renvoi-note').value='';
+  $('renvoi-status').style.display='none';
+  const btn=$('btn-renvoi-bon');if(btn){btn.disabled=false;btn.textContent='📧 Renvoyer'}
+  openModal('modal-renvoi-bon');
+}
+
+async function confirmRenvoiBon(){
+  const b=(S.bonsModification||[]).find(x=>x.id===_renvoiBonId);
+  if(!b)return;
+  const note=$('renvoi-note').value.trim();
+  const btn=$('btn-renvoi-bon');
+  const status=$('renvoi-status');
+  btn.disabled=true;btn.textContent='⏳ Envoi…';
+
+  // Reconstruire le HTML si non stocké (anciens bons), sinon réutiliser
+  let htmlMods=b.deltaHTML;
+  if(!htmlMods){
+    htmlMods=`<h3 style="font-family:Arial,sans-serif;color:#dc2626">BON DE MODIFICATION N°${b.bonNumber} (renvoi)</h3><p style="font-family:Arial,sans-serif;color:#6b7280;font-size:12px">Semaine ${b.week}/${b.year} — Du ${b.dateDebut} au ${b.dateFin}</p>`;
+    // Fallback : reconstruire un tableau agrégé +N/-N à partir des modifications brutes stockées
+    const mods=b.modifications||[];
+    if(mods.length){
+      // Agréger par régime+jour+service : compter les transitions OK/ABS/PN
+      // Chaque modif change l'effectif : ABS→OK = +1 repas, OK→ABS = -1 repas, etc.
+      const agg={}; // clé: "regime|jour|service" -> delta
+      mods.forEach(m=>{
+        const r=S.residents.find(x=>x.id===m.personId)||(S.temporaires||[]).find(x=>x.id===m.personId);
+        const regime=r?(r.regime+(r.special?' + '+r.special:'')):'Normal';
+        const wasServed=m.oldValue==='OK';
+        const isServed=m.newValue==='OK';
+        const wasPn=m.oldValue==='PN';
+        const isPn=m.newValue==='PN';
+        const key=`${regime}|${m.dayName}|${m.service}`;
+        if(!agg[key])agg[key]={regime,jour:m.dayName,service:m.service,delta:0,pnDelta:0};
+        if(wasServed&&!isServed)agg[key].delta-=1;
+        if(!wasServed&&isServed)agg[key].delta+=1;
+        if(wasPn&&!isPn)agg[key].pnDelta-=1;
+        if(!wasPn&&isPn)agg[key].pnDelta+=1;
+      });
+      const rows=Object.values(agg).filter(a=>a.delta!==0||a.pnDelta!==0);
+      if(rows.length){
+        htmlMods+=`<table border="1" cellpadding="5" cellspacing="0" style="border-collapse:collapse;font-family:Arial,sans-serif;font-size:12px;width:100%;margin-top:10px">`;
+        htmlMods+=`<thead><tr style="background:#e5e7eb"><th>Régime</th><th>Jour</th><th>Service</th><th>Repas</th><th>Pique-nique</th></tr></thead><tbody>`;
+        rows.forEach(a=>{
+          const fmt=(v)=>{if(v===0)return '<span style="color:#ccc">—</span>';const s=v>0?'+':'';const c=v>0?'#059669':'#dc2626';return `<span style="color:${c};font-weight:800">${s}${v}</span>`};
+          htmlMods+=`<tr><td style="font-weight:700">${a.regime}</td><td>${a.jour}</td><td>${a.service}</td><td style="text-align:center">${fmt(a.delta)}</td><td style="text-align:center">${fmt(a.pnDelta)}</td></tr>`;
+        });
+        htmlMods+=`</tbody></table>`;
+      }
+    }
+  }
+
+  if(!EMAILJS_PUBLIC_KEY){
+    status.style.display='block';
+    status.style.background='var(--amber-bg)';
+    status.style.color='var(--amber)';
+    status.innerHTML='⚠️ EmailJS non configuré';
+    btn.disabled=false;btn.textContent='📧 Renvoyer';
+    return;
+  }
+
+  try{
+    emailjs.init(EMAILJS_PUBLIC_KEY);
+    await emailjs.send(EMAILJS_SERVICE_ID,EMAILJS_TEMPLATE_ID,{
+      semaine:`Semaine ${b.week} - ${b.year}`,
+      periode:`Bon de modification N°${b.bonNumber} (renvoi)`,
+      etablissement:'Maison Saint-Paul - ANDAPEI Lot-et-Garonne',
+      to_email:EMAIL_CUISINE,
+      cc_email:EMAIL_CC,
+      note:note||'Renvoi de ce bon de modification.',
+      contenu_html:htmlMods
+    });
+    status.style.display='block';
+    status.style.background='var(--green-bg)';
+    status.style.color='var(--green)';
+    status.innerHTML=`✅ Bon N°${b.bonNumber} renvoyé à ${EMAIL_CUISINE}`;
+    auditLog('BON_RENVOYE_CUISINE',{bonNumber:b.bonNumber,semaine:`${b.week}_${b.year}`});
+    if(!b.sendHistory)b.sendHistory=[{date:b.date,by:b.sentBy||'—',type:'initial'}];
+    b.sendHistory.push({date:new Date().toISOString(),by:currentUser?.nom||'—',type:'renvoi'});
+    save('bons');
+    renderHist();
+    btn.textContent='✅ Envoyé';
+    setTimeout(()=>closeModal('modal-renvoi-bon'),2000);
+  }catch(e){
+    status.style.display='block';
+    status.style.background='var(--red-bg)';
+    status.style.color='var(--red)';
+    status.innerHTML=`❌ Erreur : ${e.text||e.message}`;
+    btn.disabled=false;btn.textContent='📧 Renvoyer';
+  }
+}
+
+function voirBon(id){
+  const b=(S.bonsModification||[]).find(x=>x.id===id);
+  if(!b)return;
+  const d=new Date(b.date);
+  const hist=b.sendHistory||(b.sentByEmail?[{date:b.date,by:b.sentBy||'—',type:'initial'}]:[]);
+  let histHTML='';
+  if(hist.length){
+    histHTML=`<div style="margin-top:8px"><strong>Historique des envois :</strong><div style="margin-top:4px">`;
+    hist.forEach(h=>{
+      const hd=new Date(h.date);
+      const label=h.type==='renvoi'?'🔁 Renvoyé':'📧 Envoyé';
+      histHTML+=`<div style="font-size:12px;padding:3px 0;border-bottom:1px solid var(--border)">${label} le ${hd.toLocaleDateString('fr-FR')} à ${hd.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})} par <strong>${h.by}</strong></div>`;
+    });
+    histHTML+=`</div></div>`;
+  } else {
+    histHTML=`<div style="margin-top:8px;color:var(--txt3)">Jamais envoyé par email</div>`;
+  }
+  $('voir-bon-title').textContent=`Bon N°${b.bonNumber} — Semaine ${b.week}/${b.year}`;
+  $('voir-bon-meta').innerHTML=`
+    <div><strong>Créé le :</strong> ${d.toLocaleDateString('fr-FR')} à ${d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</div>
+    <div><strong>Période :</strong> Du ${b.dateDebut} au ${b.dateFin}</div>
+    <div><strong>Nombre de modifications :</strong> ${b.modificationsCount}</div>
+    ${histHTML}
+  `;
+  let content='<table style="width:100%;border-collapse:collapse;font-size:12px">';
+  content+='<thead><tr style="background:var(--bg)"><th style="padding:6px 8px;text-align:left;border-bottom:1px solid var(--border)">Résident</th><th style="padding:6px 8px;text-align:left;border-bottom:1px solid var(--border)">Jour</th><th style="padding:6px 8px;text-align:left;border-bottom:1px solid var(--border)">Service</th><th style="padding:6px 8px;text-align:center;border-bottom:1px solid var(--border)">Avant</th><th style="padding:6px 8px;text-align:center;border-bottom:1px solid var(--border)">Après</th><th style="padding:6px 8px;text-align:left;border-bottom:1px solid var(--border)">Heure</th></tr></thead><tbody>';
+  (b.modifications||[]).forEach(m=>{
+    const md=new Date(m.date);
+    content+=`<tr><td style="padding:6px 8px;border-bottom:1px solid var(--border);font-weight:600">${m.personName||m.personId}</td><td style="padding:6px 8px;border-bottom:1px solid var(--border)">${m.dayName}</td><td style="padding:6px 8px;border-bottom:1px solid var(--border)">${m.service}</td><td style="padding:6px 8px;border-bottom:1px solid var(--border);text-align:center;color:var(--red);font-weight:600">${formatModValue(m.oldValue)}</td><td style="padding:6px 8px;border-bottom:1px solid var(--border);text-align:center;color:var(--green);font-weight:600">${formatModValue(m.newValue)}</td><td style="padding:6px 8px;border-bottom:1px solid var(--border);font-size:11px;color:var(--txt3)">${md.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</td></tr>`;
+  });
+  content+='</tbody></table>';
+  $('voir-bon-content').innerHTML=content;
+  openModal('modal-voir-bon');
 }
 
 function deleteBon(id){bonDelId=id;$('pw-del-bon').value='';$('pw-del-err').style.display='none';openModal('modal-del-bon');setTimeout(()=>$('pw-del-bon').focus(),100)}
@@ -3360,7 +4067,7 @@ function countRepasByDay(dateObj, lieuId, service, textures){
   // Groupes (comptés en Normal uniquement)
   if(!textures||textures.includes('Normal')){
     S.groupes.filter(g=>g.lieuId===lieuId).forEach(g=>{
-      count+=service==='midi'?(g.vals?.[dayIdx]||0):(g.valsSoir?.[dayIdx]||0);
+      count+=service==='midi'?getGrpVal(g,'vals',dayIdx):getGrpVal(g,'valsSoir',dayIdx);
     });
   }
 
@@ -3377,7 +4084,7 @@ function isTempoActiveForDate(t,date){
 
 function buildReportingData(month, year){
   const daysInMonth=new Date(year,month+1,0).getDate();
-  const lieux=S.lieux.filter(l=>!l.isStaffOnly);
+  const lieux=S.lieux; // Tous les lieux, y compris Personnel uniquement (facturés de la même façon)
   const textures=['Normal','Mixé']; // Regroupement : tout ce qui n'est pas Mixé = Normal
 
   // Résultat : pour chaque lieu × service × texture : tableau de 31 valeurs
@@ -3421,7 +4128,11 @@ function countRepasByDayFull(dateObj, lieuId, service, texture){
 
   S.residents.filter(r=>{
     const aff=S.affectations[r.id];
-    return service==='midi'?aff?.midi===lieuId:aff?.soir===lieuId;
+    const defaultLieu=service==='midi'?aff?.midi:aff?.soir;
+    const pk=`${r.id}_${dayIdx}_${service}`;
+    const delLieu=S.delocalisations?.[wk]?.[pk];
+    const effLieu=delLieu||defaultLieu;
+    return effLieu===lieuId;
   }).forEach(r=>{
     if(r.regime!==texture)return;
     const abs=S.absences[wk]?.[r.id]||[];
@@ -3442,9 +4153,18 @@ function countRepasByDayFull(dateObj, lieuId, service, texture){
   });
 
   // Groupes (repas + pique-nique comptent comme repas servis)
+  // Important : utiliser la semaine/année du JOUR concerné (week/year calculés plus haut),
+  // pas S.currentWeek, pour que le reporting des mois passés reste exact même si
+  // l'écran affiche une autre semaine.
   if(texture==='Normal'){
+    const ov=S.groupesOverrides?.[wk]||{};
     S.groupes.filter(g=>g.lieuId===lieuId).forEach(g=>{
-      count+=service==='midi'?((g.vals?.[dayIdx]||0)+(g.valsPn?.[dayIdx]||0)):((g.valsSoir?.[dayIdx]||0)+(g.valsSoirPn?.[dayIdx]||0));
+      const getVal=(field)=>{
+        const o=ov[g.id]?.[field]?.[dayIdx];
+        if(o!==undefined&&o!==null)return o;
+        return (g[field]||Array(7).fill(0))[dayIdx]||0;
+      };
+      count+=service==='midi'?(getVal('vals')+getVal('valsPn')):(getVal('valsSoir')+getVal('valsSoirPn'));
     });
   }
 
@@ -3500,7 +4220,7 @@ function renderReporting(){
         const isWE=dow===0||dow===6;
         cells+=`<td style="text-align:center;font-size:11px;${isWE?'background:#fef9f9':''}${v>0?';font-weight:600':';color:var(--txt3)'}">${v||'—'}</td>`;
       }
-      tableRows+=`<tr><td style="font-weight:600;white-space:nowrap;padding-left:12px">${l.nom}</td><td style="color:var(--txt2);font-size:12px;white-space:nowrap">☀ Déjeuner Normal</td>${cells}<td style="text-align:center;font-weight:700;background:var(--blue-bg);color:var(--blue)">${totMN}</td></tr>`;
+      tableRows+=`<tr><td style="font-weight:600;white-space:nowrap;padding-left:12px;position:sticky;left:0;background:var(--card);z-index:1">${l.nom}</td><td style="color:var(--txt2);font-size:12px;white-space:nowrap;position:sticky;left:130px;background:var(--card);z-index:1;box-shadow:2px 0 4px rgba(0,0,0,.06)">☀ Déjeuner Normal</td>${cells}<td style="text-align:center;font-weight:700;background:var(--blue-bg);color:var(--blue);position:sticky;right:0;box-shadow:-2px 0 4px rgba(0,0,0,.1)">${totMN}</td></tr>`;
     }
     // Ligne Midi Mixé
     if(totMX>0){
@@ -3511,7 +4231,7 @@ function renderReporting(){
         const isWE=dow===0||dow===6;
         cells+=`<td style="text-align:center;font-size:11px;${isWE?'background:#fef9f9':''}${v>0?';font-weight:600;color:var(--green)':';color:var(--txt3)'}">${v||'—'}</td>`;
       }
-      tableRows+=`<tr><td style="font-weight:600;white-space:nowrap;padding-left:12px">${l.nom}</td><td style="color:var(--green);font-size:12px;white-space:nowrap">☀ Déjeuner Mixé</td>${cells}<td style="text-align:center;font-weight:700;background:var(--green-bg);color:var(--green)">${totMX}</td></tr>`;
+      tableRows+=`<tr><td style="font-weight:600;white-space:nowrap;padding-left:12px;position:sticky;left:0;background:var(--card);z-index:1">${l.nom}</td><td style="color:var(--green);font-size:12px;white-space:nowrap;position:sticky;left:130px;background:var(--card);z-index:1;box-shadow:2px 0 4px rgba(0,0,0,.06)">☀ Déjeuner Mixé</td>${cells}<td style="text-align:center;font-weight:700;background:var(--green-bg);color:var(--green);position:sticky;right:0;box-shadow:-2px 0 4px rgba(0,0,0,.1)">${totMX}</td></tr>`;
     }
     // Ligne Soir Normal
     if(totSN>0||true){
@@ -3522,7 +4242,7 @@ function renderReporting(){
         const isWE=dow===0||dow===6;
         cells+=`<td style="text-align:center;font-size:11px;${isWE?'background:#fef9f9':''}${v>0?';font-weight:600':';color:var(--txt3)'}">${v||'—'}</td>`;
       }
-      tableRows+=`<tr style="border-top:1px solid var(--border)"><td style="font-weight:600;white-space:nowrap;padding-left:12px">${l.nom}</td><td style="color:var(--txt2);font-size:12px;white-space:nowrap">🌙 Diner Normal</td>${cells}<td style="text-align:center;font-weight:700;background:var(--blue-bg);color:var(--blue)">${totSN}</td></tr>`;
+      tableRows+=`<tr style="border-top:1px solid var(--border)"><td style="font-weight:600;white-space:nowrap;padding-left:12px;position:sticky;left:0;background:var(--card);z-index:1">${l.nom}</td><td style="color:var(--txt2);font-size:12px;white-space:nowrap;position:sticky;left:130px;background:var(--card);z-index:1;box-shadow:2px 0 4px rgba(0,0,0,.06)">🌙 Diner Normal</td>${cells}<td style="text-align:center;font-weight:700;background:var(--blue-bg);color:var(--blue);position:sticky;right:0;box-shadow:-2px 0 4px rgba(0,0,0,.1)">${totSN}</td></tr>`;
     }
     // Ligne Soir Mixé
     if(totSX>0){
@@ -3533,7 +4253,7 @@ function renderReporting(){
         const isWE=dow===0||dow===6;
         cells+=`<td style="text-align:center;font-size:11px;${isWE?'background:#fef9f9':''}${v>0?';font-weight:600;color:var(--green)':';color:var(--txt3)'}">${v||'—'}</td>`;
       }
-      tableRows+=`<tr><td style="font-weight:600;white-space:nowrap;padding-left:12px">${l.nom}</td><td style="color:var(--green);font-size:12px;white-space:nowrap">🌙 Diner Mixé</td>${cells}<td style="text-align:center;font-weight:700;background:var(--green-bg);color:var(--green)">${totSX}</td></tr>`;
+      tableRows+=`<tr><td style="font-weight:600;white-space:nowrap;padding-left:12px;position:sticky;left:0;background:var(--card);z-index:1">${l.nom}</td><td style="color:var(--green);font-size:12px;white-space:nowrap;position:sticky;left:130px;background:var(--card);z-index:1;box-shadow:2px 0 4px rgba(0,0,0,.06)">🌙 Diner Mixé</td>${cells}<td style="text-align:center;font-weight:700;background:var(--green-bg);color:var(--green);position:sticky;right:0;box-shadow:-2px 0 4px rgba(0,0,0,.1)">${totSX}</td></tr>`;
     }
     // Ligne séparatrice
     tableRows+=`<tr style="height:2px;background:var(--border)"><td colspan="${daysInMonth+3}"></td></tr>`;
@@ -3548,7 +4268,7 @@ function renderReporting(){
     const isWE=dow===0||dow===6;
     colTotals+=`<td style="text-align:center;font-weight:700;font-size:11px;${isWE?'background:#fef2f2;color:var(--red)':'background:var(--bg);color:var(--txt)'}">${dayTotal||'—'}</td>`;
   }
-  tableRows+=`<tr style="border-top:2px solid var(--border)"><td colspan="2" style="font-weight:700;font-size:13px">TOTAL JOUR</td>${colTotals}<td style="text-align:center;font-weight:800;font-size:14px;background:var(--blue);color:#fff">${totalGlobal}</td></tr>`;
+  tableRows+=`<tr style="border-top:2px solid var(--border)"><td colspan="2" style="font-weight:700;font-size:13px;position:sticky;left:0;background:var(--card);z-index:1">TOTAL JOUR</td>${colTotals}<td style="text-align:center;font-weight:800;font-size:14px;background:var(--blue);color:#fff;position:sticky;right:0;box-shadow:-2px 0 4px rgba(0,0,0,.1)">${totalGlobal}</td></tr>`;
 
   const html=`
     <!-- Synthèse -->
@@ -3584,15 +4304,15 @@ function renderReporting(){
     <div class="table-box" style="overflow-x:auto">
       <div class="table-top">
         <h2>Détail par lieu et par jour — ${moisNom} ${year}</h2>
-        <span style="font-size:12px;color:var(--txt3)">Les week-ends sont surlignés en rouge</span>
+        <span style="font-size:12px;color:var(--txt3)">Les week-ends sont surlignés en rouge — faites défiler horizontalement pour voir tous les jours</span>
       </div>
-      <table style="min-width:${daysInMonth*30+300}px">
+      <table style="min-width:${daysInMonth*30+300}px;border-collapse:collapse">
         <thead>
           <tr>
-            <th style="min-width:130px">Lieu</th>
-            <th style="min-width:130px">Service / Régime</th>
+            <th style="min-width:130px;position:sticky;left:0;background:var(--card);z-index:2">Lieu</th>
+            <th style="min-width:130px;position:sticky;left:130px;background:var(--card);z-index:2;box-shadow:2px 0 4px rgba(0,0,0,.06)">Service / Régime</th>
             ${daysHeader}
-            <th style="text-align:center;background:var(--blue-bg);color:var(--blue);min-width:50px">TOTAL</th>
+            <th style="text-align:center;background:var(--blue-bg);color:var(--blue);min-width:60px;position:sticky;right:0;z-index:2;box-shadow:-2px 0 4px rgba(0,0,0,.1)">TOTAL</th>
           </tr>
         </thead>
         <tbody>${tableRows}</tbody>
