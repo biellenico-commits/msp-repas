@@ -15,7 +15,7 @@
 <link rel="icon" type="image/png" sizes="32x32" href="favicon.png">
 <title>MSP Repas — Maison Saint Paul</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,500;0,9..40,700;0,9..40,800;1,9..40,400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
 <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
 <!-- Supabase -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -24,23 +24,25 @@
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
-  --bg:#f8f9fc;--bg2:#ffffff;--panel:#ffffff;--card:#ffffff;
-  --border:#e5e7eb;--border2:#d1d5db;
-  --txt:#111827;--txt2:#6b7280;--txt3:#9ca3af;
-  --blue:#1a56db;--blue-bg:#eff6ff;--blue-border:#bfdbfe;
-  --green:#059669;--green-bg:#ecfdf5;--green-border:#a7f3d0;
-  --red:#dc2626;--red-bg:#fef2f2;--red-border:#fecaca;
-  --amber:#d97706;--amber-bg:#fffbeb;--amber-border:#fde68a;
-  --teal:#0891b2;--teal-bg:#ecfeff;--teal-border:#a5f3fc;
-  --purple:#7c3aed;--purple-bg:#f5f3ff;--purple-border:#c4b5fd;
-  --shadow-sm:0 1px 2px rgba(0,0,0,.05);
-  --shadow:0 1px 3px rgba(0,0,0,.1),0 1px 2px rgba(0,0,0,.06);
-  --shadow-md:0 4px 6px -1px rgba(0,0,0,.1),0 2px 4px -2px rgba(0,0,0,.1);
-  --radius:10px;--radius-lg:14px;
-  --lundi:#3b82f6;--mardi:#10b981;--mercredi:#f59e0b;--jeudi:#ef4444;
-  --vendredi:#8b5cf6;--samedi:#ec4899;--dimanche:#06b6d4;
+  /* THEME 1 — SOBRE & INSTITUTIONNEL */
+  --bg:#f4f6f9;--bg2:#ffffff;--panel:#ffffff;--card:#ffffff;
+  --border:#dde2e9;--border2:#c5ccd6;
+  --txt:#1a2332;--txt2:#5b6779;--txt3:#94a0b2;
+  --blue:#1e3a8a;--blue-bg:#eef2fb;--blue-border:#c2cdec;
+  --green:#15803d;--green-bg:#eefcf3;--green-border:#a9e8c0;
+  --red:#b91c1c;--red-bg:#fdf0f0;--red-border:#f0bcbc;
+  --amber:#b45309;--amber-bg:#fdf6ea;--amber-border:#f0d9a8;
+  --teal:#0e6b7a;--teal-bg:#eaf6f8;--teal-border:#a8dde4;
+  --purple:#5b3aa8;--purple-bg:#f1eef9;--purple-border:#cabdea;
+  --shadow-sm:0 1px 2px rgba(16,24,40,.05);
+  --shadow:0 1px 3px rgba(16,24,40,.08),0 1px 2px rgba(16,24,40,.04);
+  --shadow-md:0 4px 8px -2px rgba(16,24,40,.1),0 2px 4px -2px rgba(16,24,40,.06);
+  --radius:8px;--radius-lg:12px;
+  --lundi:#2563eb;--mardi:#0d9488;--mercredi:#b45309;--jeudi:#b91c1c;
+  --vendredi:#5b3aa8;--samedi:#be185d;--dimanche:#0e6b7a;
 }
-body{background:var(--bg);color:var(--txt);font-family:'DM Sans',system-ui,-apple-system,sans-serif;display:flex;min-height:100vh;font-size:14px;line-height:1.5}
+body{background:var(--bg);color:var(--txt);font-family:'Inter',system-ui,-apple-system,sans-serif;display:flex;min-height:100vh;font-size:14px;line-height:1.5;letter-spacing:-0.005em}
+h1,h2,h3{letter-spacing:-0.02em;font-weight:700}
 
 /* LOADING SCREEN */
 #loading-screen{position:fixed;inset:0;background:#fff;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px}
@@ -508,6 +510,10 @@ tr:hover td{background:rgba(0,0,0,.015)}
       <label class="btn btn-outline btn-sm" style="cursor:pointer">📂 Import JSON<input type="file" accept=".json" style="display:none" onchange="importJSON(this)"></label>
     </div>
   </div>
+  <div style="display:flex;gap:8px;margin-bottom:12px">
+    <button class="filter-btn active" id="res-status-active" onclick="filterResStatus('active')">✅ Actifs</button>
+    <button class="filter-btn" id="res-status-archived" onclick="filterResStatus('archived')">🚪 Archivés (partis)</button>
+  </div>
   <div class="filter-bar" id="res-filters"></div>
   <div class="table-box">
     <div class="table-top">
@@ -785,6 +791,10 @@ tr:hover td{background:rgba(0,0,0,.015)}
         <div class="form-group"><label>Régime spécial</label><select id="r-spe"></select></div>
         <div class="form-group"><label>Portions</label><input type="number" id="r-por" min="0" max="10" step="0.5" value="1"></div>
         <div class="form-group"><label>⚠ Adaptation</label><input type="text" id="r-ada"></div>
+        <div class="form-group full" style="border-top:1px solid var(--border);padding-top:14px;margin-top:6px">
+          <label>🚪 Date de départ définitif <span style="font-weight:400;font-size:10px;color:var(--txt3);text-transform:none;letter-spacing:0">(changement de structure, décès, etc. — laisser vide si présent)</span></label>
+          <input type="date" id="r-depart">
+        </div>
       </div>
     </div>
     <div class="modal-foot"><button class="btn btn-outline" onclick="closeModal('modal-resident')">Annuler</button><button class="btn btn-primary" onclick="saveResident()">Enregistrer</button></div>
@@ -1043,6 +1053,17 @@ function isPlannedAbs(rid,dayIdx,svc){
 // Vérifie si une personne est absente à un jour/service donné de la semaine COURANTE (S.currentWeek),
 // en combinant : absence cochée manuellement (S.absences) + absence planifiée (congés/hospit.)
 // dayIdx : 0=Lundi ... 6=Dimanche (relatif à S.currentWeek)
+// Vérifie si un résident est encore actif (présent) à la date donnée (par défaut : aujourd'hui).
+// Un résident avec une date de départ définitif passée n'est plus actif.
+function isResidentActive(r, atDate){
+  if(!r.dateDepart)return true;
+  const ref=atDate?new Date(atDate):new Date();
+  ref.setHours(0,0,0,0);
+  const dep=new Date(r.dateDepart);
+  dep.setHours(0,0,0,0);
+  return ref<=dep; // reste actif JUSQU'À la date de départ incluse
+}
+
 function isAbsentSlot(pid, dayIdx, svc){
   const w = wk();
   const slot = dayIdx*2 + (svc==='soir'?1:0);
@@ -1175,7 +1196,7 @@ const defaultState={
   groupesOverrides:{} // {week_year: {groupeId: {vals:[7], valsSoir:[7], valsPn:[7], valsSoirPn:[7]}}}
 };
 
-let S=null, cmdFilter='all', resFilter='all', tempoFilt='all', regTab='textures', _cfCb=null, bonDelId=null;
+let S=null, cmdFilter='all', resFilter='all', resStatusFilter='active', tempoFilt='all', regTab='textures', _cfCb=null, bonDelId=null;
 let db=null; // Supabase client
 let isSyncing=false;
 
@@ -1224,7 +1245,7 @@ async function loadFromSupabase(){
     if(res){
       S.residents=res.map(r=>({
         id:r.id,nom:r.nom,regime:r.regime||'Normal',special:r.special||'',
-        portions:r.portions||1,adapt:r.adapt||''
+        portions:r.portions||1,adapt:r.adapt||'',dateDepart:r.date_depart||''
       }));
       // Affectations
       res.forEach(r=>{S.affectations[r.id]={midi:r.lieu_midi||'',soir:r.lieu_soir||''}});
@@ -1396,7 +1417,8 @@ async function pushToSupabase(section='all'){
           id:r.id,nom:r.nom,regime:r.regime,special:r.special,
           portions:r.portions,adapt:r.adapt,
           lieu_midi:S.affectations[r.id]?.midi||null,
-          lieu_soir:S.affectations[r.id]?.soir||null
+          lieu_soir:S.affectations[r.id]?.soir||null,
+          date_depart:r.dateDepart||null
         }));
         await db.from('residents').upsert(rows,{onConflict:'id'});
       }
@@ -2136,7 +2158,7 @@ function renderCommande(){
   S.lieux.filter(l=>!l.isStaffOnly).forEach(l=>{f.innerHTML+=`<button class="filter-btn ${cmdFilter===l.id?'active':''}" onclick="filterCmd('${l.id}',this)">${l.nom}</button>`});
   
   const search=($('cmd-search')?.value||'').toLowerCase();
-  let persons=S.residents.filter(r=>{if(cmdFilter!=='all'&&S.affectations[r.id]?.midi!==cmdFilter)return false;return!search||r.nom.toLowerCase().includes(search)});
+  let persons=S.residents.filter(r=>isResidentActive(r)).filter(r=>{if(cmdFilter!=='all'&&S.affectations[r.id]?.midi!==cmdFilter)return false;return!search||r.nom.toLowerCase().includes(search)});
   const tempos=(S.temporaires||[]).filter(t=>{if(!isTempoActive(t,S.currentWeek,S.currentYear))return false;if(cmdFilter!=='all'&&t.lieuMidi!==cmdFilter&&t.lieuSoir!==cmdFilter)return false;return true});
   persons=[...persons,...tempos.map(t=>({...t,isTempo:true}))];
   persons.sort((a,b)=>{const la=a.isTempo?(a.lieuMidi||''):(S.affectations[a.id]?.midi||''),lb=b.isTempo?(b.lieuMidi||''):(S.affectations[b.id]?.midi||'');return la.localeCompare(lb)||(a.nom||'').localeCompare(b.nom||'')});
@@ -2264,10 +2286,10 @@ function renderTotaux(){
       const jS={jour:DAYS[di],service:'Soir',regimes:{},pnRegimes:{},tem:0};
       
       sites[siteName].forEach(lieu=>{
-        S.residents.forEach(p=>{
+        S.residents.filter(p=>isResidentActive(p)).forEach(p=>{
           if(getEffectiveLieu(p.id,di,'midi',S.affectations[p.id]?.midi)===lieu.id&&!isAbsentSlot(p.id,di,'midi')){const pk=`${p.id}_${di}_midi`,isPn=S.piquenique[w]?.[pk];const k=`${p.regime}${p.special?' + '+p.special:''}`;if(isPn){pnSet.add(k);jM.pnRegimes[k]=(jM.pnRegimes[k]||0)+1}else{regSet.add(k);jM.regimes[k]=(jM.regimes[k]||0)+1}}
         });
-        S.residents.forEach(p=>{
+        S.residents.filter(p=>isResidentActive(p)).forEach(p=>{
           if(getEffectiveLieu(p.id,di,'soir',S.affectations[p.id]?.soir)===lieu.id&&!isAbsentSlot(p.id,di,'soir')){const pk=`${p.id}_${di}_soir`,isPn=S.piquenique[w]?.[pk];const k=`${p.regime}${p.special?' + '+p.special:''}`;if(isPn){pnSet.add(k);jS.pnRegimes[k]=(jS.pnRegimes[k]||0)+1}else{regSet.add(k);jS.regimes[k]=(jS.regimes[k]||0)+1}}
         });
         (S.temporaires||[]).filter(t=>isTempoActive(t,S.currentWeek,S.currentYear)).forEach(t=>{
@@ -2344,8 +2366,8 @@ function confirmPrint(){
           if(!map.has(k))map.set(k,{midi:Array(7).fill(0),soir:Array(7).fill(0)});
           map.get(k)[svc][di]++;
         };
-        S.residents.filter(p=>getEffectiveLieu(p.id,di,'midi',S.affectations[p.id]?.midi)===lieu.id).forEach(p=>addP(p,'midi'));
-        S.residents.filter(p=>getEffectiveLieu(p.id,di,'soir',S.affectations[p.id]?.soir)===lieu.id).forEach(p=>addP(p,'soir'));
+        S.residents.filter(p=>isResidentActive(p)&&getEffectiveLieu(p.id,di,'midi',S.affectations[p.id]?.midi)===lieu.id).forEach(p=>addP(p,'midi'));
+        S.residents.filter(p=>isResidentActive(p)&&getEffectiveLieu(p.id,di,'soir',S.affectations[p.id]?.soir)===lieu.id).forEach(p=>addP(p,'soir'));
         (S.temporaires||[]).filter(t=>isTempoActive(t,week,year)).forEach(t=>{
           if(t.lieuMidi===lieu.id&&(!t.habitudes||t.habitudes[di*2]!==false))addP(t,'midi');
           if(t.lieuSoir===lieu.id&&(!t.habitudes||t.habitudes[di*2+1]!==false))addP(t,'soir');
@@ -2416,8 +2438,8 @@ function buildCommandeHTML(){
           if(!map.has(k))map.set(k,{midi:Array(7).fill(0),soir:Array(7).fill(0)});
           map.get(k)[svc][di]++;
         };
-        S.residents.filter(p=>getEffectiveLieu(p.id,di,'midi',S.affectations[p.id]?.midi)===lieu.id).forEach(p=>addP(p,'midi'));
-        S.residents.filter(p=>getEffectiveLieu(p.id,di,'soir',S.affectations[p.id]?.soir)===lieu.id).forEach(p=>addP(p,'soir'));
+        S.residents.filter(p=>isResidentActive(p)&&getEffectiveLieu(p.id,di,'midi',S.affectations[p.id]?.midi)===lieu.id).forEach(p=>addP(p,'midi'));
+        S.residents.filter(p=>isResidentActive(p)&&getEffectiveLieu(p.id,di,'soir',S.affectations[p.id]?.soir)===lieu.id).forEach(p=>addP(p,'soir'));
         (S.temporaires||[]).filter(t=>isTempoActive(t,week,year)).forEach(t=>{
           if(t.lieuMidi===lieu.id&&(!t.habitudes||t.habitudes[di*2]!==false))addP(t,'midi');
           if(t.lieuSoir===lieu.id&&(!t.habitudes||t.habitudes[di*2+1]!==false))addP(t,'soir');
@@ -2565,8 +2587,8 @@ function calcTotauxByLieu(weekData){
         const del=weekData.delocalisations?.[pk];
         return del||defaultLieuId;
       };
-      S.residents.filter(p=>getEffLieuSnap(p,'midi',S.affectations[p.id]?.midi)===lieu.id).forEach(p=>addP(p,'midi'));
-      S.residents.filter(p=>getEffLieuSnap(p,'soir',S.affectations[p.id]?.soir)===lieu.id).forEach(p=>addP(p,'soir'));
+      S.residents.filter(p=>isResidentActive(p)&&getEffLieuSnap(p,'midi',S.affectations[p.id]?.midi)===lieu.id).forEach(p=>addP(p,'midi'));
+      S.residents.filter(p=>isResidentActive(p)&&getEffLieuSnap(p,'soir',S.affectations[p.id]?.soir)===lieu.id).forEach(p=>addP(p,'soir'));
       (S.temporaires||[]).filter(t=>isTempoActive(t,S.currentWeek,S.currentYear)).forEach(t=>{
         if(t.lieuMidi===lieu.id&&(!t.habitudes||t.habitudes[di*2]!==false))addP(t,'midi');
         if(t.lieuSoir===lieu.id&&(!t.habitudes||t.habitudes[di*2+1]!==false))addP(t,'soir');
@@ -2655,20 +2677,32 @@ function genererBon(){
 // ============================================================
 function filterRes(lid,btn){resFilter=lid;document.querySelectorAll('#res-filters .filter-btn').forEach(b=>b.classList.remove('active'));if(btn)btn.classList.add('active');renderResidents()}
 
+function filterResStatus(status){
+  resStatusFilter=status;
+  const a=$('res-status-active'),b=$('res-status-archived');
+  if(a)a.classList.toggle('active',status==='active');
+  if(b)b.classList.toggle('active',status==='archived');
+  renderResidents();
+}
+
 function renderResidents(){
   const f=$('res-filters');if(!f)return;
   f.innerHTML=`<button class="filter-btn ${resFilter==='all'?'active':''}" onclick="filterRes('all',this)">Tous</button>`;
   S.lieux.forEach(l=>f.innerHTML+=`<button class="filter-btn ${resFilter===l.id?'active':''}" onclick="filterRes('${l.id}',this)">${l.nom}</button>`);
   
   const search=($('res-search')?.value||'').toLowerCase();
-  let res=S.residents.filter(r=>{if(resFilter!=='all'&&S.affectations[r.id]?.midi!==resFilter)return false;return!search||r.nom.toLowerCase().includes(search)}).sort((a,b)=>a.nom.localeCompare(b.nom));
+  let res=S.residents
+    .filter(r=>resStatusFilter==='active'?isResidentActive(r):!isResidentActive(r))
+    .filter(r=>{if(resFilter!=='all'&&S.affectations[r.id]?.midi!==resFilter)return false;return!search||r.nom.toLowerCase().includes(search)})
+    .sort((a,b)=>a.nom.localeCompare(b.nom));
   $('res-count').textContent=res.length;
   
   let h=`<table><thead><tr><th>Nom</th><th>Lieu Midi</th><th>Lieu Soir</th><th>Régime</th><th style="text-align:right">Actions</th></tr></thead><tbody>`;
-  if(!res.length)h+=`<tr><td colspan="5" class="empty-state">Aucun résident</td></tr>`;
+  if(!res.length)h+=`<tr><td colspan="5" class="empty-state">${resStatusFilter==='active'?'Aucun résident actif':'Aucun résident archivé'}</td></tr>`;
   res.forEach(r=>{
     const lm=getLieu(S.affectations[r.id]?.midi),ls=getLieu(S.affectations[r.id]?.soir),tex=getTex(r.regime),sp=r.special?getReg(r.special):null;
-    h+=`<tr><td style="font-weight:600">${r.nom}${r.adapt?` <span style="color:var(--amber);font-size:11px">⚠ ${r.adapt}</span>`:''}</td>`;
+    const departBadge=r.dateDepart?` <span class="badge" style="background:var(--red-bg);color:var(--red);font-size:10px">🚪 Parti le ${new Date(r.dateDepart).toLocaleDateString('fr-FR')}</span>`:'';
+    h+=`<tr><td style="font-weight:600">${r.nom}${r.adapt?` <span style="color:var(--amber);font-size:11px">⚠ ${r.adapt}</span>`:''}${departBadge}</td>`;
     h+=`<td>${lm?`<span class="badge" style="background:${lm.color}15;color:${lm.color}">${lm.nom}</span>`:'—'}</td>`;
     h+=`<td>${ls?`<span class="badge" style="background:${ls.color}15;color:${ls.color}">${ls.nom}</span>`:'—'}</td>`;
     h+=`<td><span class="badge" style="background:${tex?.color||'#3b82f6'}15;color:${tex?.color||'#3b82f6'}">${r.regime}</span>${sp?` <span class="badge" style="background:${sp.color}15;color:${sp.color}">${r.special}</span>`:''}</td>`;
@@ -2687,9 +2721,11 @@ function openResidentModal(id){
     $('mrt').textContent='Modifier résident';$('r-id').value=id;$('r-nom').value=r.nom;
     $('r-lm').value=a.midi||'';$('r-ls').value=a.soir||'';
     $('r-reg').value=r.regime;$('r-spe').value=r.special||'';$('r-por').value=r.portions||1;$('r-ada').value=r.adapt||'';
+    $('r-depart').value=r.dateDepart||'';
   }else{
     $('mrt').textContent='Nouveau résident';$('r-id').value='';$('r-nom').value='';$('r-lm').value='';$('r-ls').value='';
     $('r-reg').value=S.textures[0]?.nom||'Normal';$('r-spe').value='';$('r-por').value=1;$('r-ada').value='';
+    $('r-depart').value='';
   }
   openModal('modal-resident');
 }
@@ -2697,12 +2733,25 @@ function openResidentModal(id){
 function saveResident(){
   if(!getPerms().canEdit){toast('Accès non autorisé','error');return}
   const nom=$('r-nom').value.trim();if(!nom){toast('Le nom est requis','error');return}
-  const data={nom,regime:$('r-reg').value,special:$('r-spe').value,portions:parseFloat($('r-por').value)||1,adapt:$('r-ada').value.trim()};
+  const dateDepart=$('r-depart').value||'';
+  const data={nom,regime:$('r-reg').value,special:$('r-spe').value,portions:parseFloat($('r-por').value)||1,adapt:$('r-ada').value.trim(),dateDepart};
   const aff={midi:$('r-lm').value,soir:$('r-ls').value};
   const eid=$('r-id').value;
-  if(eid){const i=S.residents.findIndex(r=>r.id===eid);if(i>=0)S.residents[i]={...S.residents[i],...data};S.affectations[eid]=aff}
+  let wasDepartureSet=false;
+  if(eid){
+    const i=S.residents.findIndex(r=>r.id===eid);
+    if(i>=0){
+      wasDepartureSet=!S.residents[i].dateDepart&&!!dateDepart;
+      S.residents[i]={...S.residents[i],...data};
+    }
+    S.affectations[eid]=aff;
+  }
   else{const nid=uid();S.residents.push({id:nid,...data});S.affectations[nid]=aff}
-  const isEdit=!!eid;auditLog(isEdit?'RESIDENT_MODIFIE':'RESIDENT_AJOUTE',{nom});save('residents');closeModal('modal-resident');renderResidents();renderDash();toast('Résident enregistré','success');
+  const isEdit=!!eid;
+  auditLog(isEdit?'RESIDENT_MODIFIE':'RESIDENT_AJOUTE',{nom});
+  if(wasDepartureSet)auditLog('RESIDENT_DEPART_DEFINITIF',{nom,date:dateDepart});
+  save('residents');closeModal('modal-resident');renderResidents();renderDash();
+  toast(wasDepartureSet?`Départ définitif enregistré pour ${nom}`:'Résident enregistré','success');
 }
 
 function deleteResident(id){showConfirm('Supprimer ce résident ?','Action irréversible',async()=>{
@@ -2840,7 +2889,7 @@ function renderAbsences(){
 }
 
 function openAbsenceModal(id){
-  $('a-res').innerHTML=S.residents.map(r=>`<option value="${r.id}">${r.nom}</option>`).join('');
+  $('a-res').innerHTML=S.residents.filter(r=>isResidentActive(r)).map(r=>`<option value="${r.id}">${r.nom}</option>`).join('');
   if(id){
     const a=(S.plannedAbsences||[]).find(x=>x.id===id);
     if(!a)return;
@@ -2946,7 +2995,7 @@ function renderLieux(){
   Object.keys(sites).sort().forEach(s=>{
     h+=`<div class="section-divider">${s}</div><div class="lieux-grid">`;
     sites[s].forEach(l=>{
-      const count=S.residents.filter(r=>S.affectations[r.id]?.midi===l.id||S.affectations[r.id]?.soir===l.id).length;
+      const count=S.residents.filter(r=>isResidentActive(r)&&(S.affectations[r.id]?.midi===l.id||S.affectations[r.id]?.soir===l.id)).length;
       h+=`<div class="lieu-card" style="border-top:3px solid ${l.color}"><div class="lieu-card-head"><div style="width:12px;height:12px;background:${l.color};border-radius:4px"></div><strong style="flex:1">${l.nom}</strong><div class="btn-group"><button class="action-btn" onclick="editLieu('${l.id}')">✏️</button><button class="action-btn" onclick="deleteLieu('${l.id}')">🗑️</button></div></div>`;
       h+=`<div class="lieu-card-body"><div class="lieu-stat"><span style="color:var(--txt2)">Résidents</span><strong>${count}</strong></div>`;
       h+=`<div class="lieu-stat"><span style="color:var(--txt2)">Services</span><span>${[l.midi?'Midi':'',l.soir?'Soir':''].filter(Boolean).join(', ')}</span></div>`;
@@ -3105,8 +3154,8 @@ function renderMEPLieu(lieu){
   const addPN=(p,di,meal)=>{const k=`${p.regime}|${p.special||''}`;if(!svc.pn.has(k))svc.pn.set(k,{regime:p.regime,special:p.special||'',midi:Array(7).fill(0),soir:Array(7).fill(0)});svc.pn.get(k)[meal][di]++};
   
   for(let di=0;di<7;di++){
-    S.residents.filter(p=>getEffectiveLieu(p.id,di,'midi',S.affectations[p.id]?.midi)===lieu.id).forEach(p=>{if(!isAbsentSlot(p.id,di,'midi')){const pk=`${p.id}_${di}_midi`;if(S.piquenique[w]?.[pk])addPN(p,di,'midi');else addP(p,di,'midi')}});
-    S.residents.filter(p=>getEffectiveLieu(p.id,di,'soir',S.affectations[p.id]?.soir)===lieu.id).forEach(p=>{if(!isAbsentSlot(p.id,di,'soir')){const pk=`${p.id}_${di}_soir`;if(S.piquenique[w]?.[pk])addPN(p,di,'soir');else addP(p,di,'soir')}});
+    S.residents.filter(p=>isResidentActive(p)&&getEffectiveLieu(p.id,di,'midi',S.affectations[p.id]?.midi)===lieu.id).forEach(p=>{if(!isAbsentSlot(p.id,di,'midi')){const pk=`${p.id}_${di}_midi`;if(S.piquenique[w]?.[pk])addPN(p,di,'midi');else addP(p,di,'midi')}});
+    S.residents.filter(p=>isResidentActive(p)&&getEffectiveLieu(p.id,di,'soir',S.affectations[p.id]?.soir)===lieu.id).forEach(p=>{if(!isAbsentSlot(p.id,di,'soir')){const pk=`${p.id}_${di}_soir`;if(S.piquenique[w]?.[pk])addPN(p,di,'soir');else addP(p,di,'soir')}});
     (S.temporaires||[]).filter(t=>isTempoActive(t,S.currentWeek,S.currentYear)).forEach(t=>{
       if(t.lieuMidi===lieu.id&&(!t.habitudes||t.habitudes[di*2]!==false)){const pk=`${t.id}_${di}_midi`;if(S.piquenique[w]?.[pk])addPN(t,di,'midi');else addP(t,di,'midi')}
       if(t.lieuSoir===lieu.id&&(!t.habitudes||t.habitudes[di*2+1]!==false)){const pk=`${t.id}_${di}_soir`;if(S.piquenique[w]?.[pk])addPN(t,di,'soir');else addP(t,di,'soir')}
@@ -3239,8 +3288,8 @@ function printMEP(){
       const addP=(p,di,meal)=>{if(p.adapt){let a=svc.adaptations.find(x=>x.nom===p.nom);if(!a){a={nom:p.nom,adapt:p.adapt,regime:p.regime,midi:Array(7).fill(0),soir:Array(7).fill(0)};svc.adaptations.push(a)}a[meal][di]++}else{const k=`${p.regime}|${p.special||''}`;if(!svc.regimes.has(k))svc.regimes.set(k,{regime:p.regime,special:p.special||'',midi:Array(7).fill(0),soir:Array(7).fill(0)});svc.regimes.get(k)[meal][di]++}};
       const addPN=(p,di,meal)=>{const k=`${p.regime}|${p.special||''}`;if(!svc.pn.has(k))svc.pn.set(k,{regime:p.regime,special:p.special||'',midi:Array(7).fill(0),soir:Array(7).fill(0)});svc.pn.get(k)[meal][di]++};
       for(let di=0;di<7;di++){
-        S.residents.filter(p=>getEffectiveLieu(p.id,di,'midi',S.affectations[p.id]?.midi)===lieu.id).forEach(p=>{if(!isAbsentSlot(p.id,di,'midi')){const pk=`${p.id}_${di}_midi`;if(S.piquenique[w]?.[pk])addPN(p,di,'midi');else addP(p,di,'midi')}});
-        S.residents.filter(p=>getEffectiveLieu(p.id,di,'soir',S.affectations[p.id]?.soir)===lieu.id).forEach(p=>{if(!isAbsentSlot(p.id,di,'soir')){const pk=`${p.id}_${di}_soir`;if(S.piquenique[w]?.[pk])addPN(p,di,'soir');else addP(p,di,'soir')}});
+        S.residents.filter(p=>isResidentActive(p)&&getEffectiveLieu(p.id,di,'midi',S.affectations[p.id]?.midi)===lieu.id).forEach(p=>{if(!isAbsentSlot(p.id,di,'midi')){const pk=`${p.id}_${di}_midi`;if(S.piquenique[w]?.[pk])addPN(p,di,'midi');else addP(p,di,'midi')}});
+        S.residents.filter(p=>isResidentActive(p)&&getEffectiveLieu(p.id,di,'soir',S.affectations[p.id]?.soir)===lieu.id).forEach(p=>{if(!isAbsentSlot(p.id,di,'soir')){const pk=`${p.id}_${di}_soir`;if(S.piquenique[w]?.[pk])addPN(p,di,'soir');else addP(p,di,'soir')}});
         (S.temporaires||[]).filter(t=>isTempoActive(t,week,year)).forEach(t=>{
           if(t.lieuMidi===lieu.id&&(!t.habitudes||t.habitudes[di*2]!==false)){const pk=`${t.id}_${di}_midi`;if(S.piquenique[w]?.[pk])addPN(t,di,'midi');else addP(t,di,'midi')}
           if(t.lieuSoir===lieu.id&&(!t.habitudes||t.habitudes[di*2+1]!==false)){const pk=`${t.id}_${di}_soir`;if(S.piquenique[w]?.[pk])addPN(t,di,'soir');else addP(t,di,'soir')}
@@ -3570,8 +3619,7 @@ function exportExcel(){
   if(!getPerms().canAdmin){toast('Accès non autorisé','error');return}
   const w=wk(),week=S.currentWeek,year=S.currentYear,wb=XLSX.utils.book_new();
   const data=[['ID','Nom','Type','Régime','Spécial','Lieu Midi','Lieu Soir','Lun M','Lun S','Mar M','Mar S','Mer M','Mer S','Jeu M','Jeu S','Ven M','Ven S','Sam M','Sam S','Dim M','Dim S']];
-  S.residents.forEach(r=>{
-    const lm=getLieu(S.affectations[r.id]?.midi),ls=getLieu(S.affectations[r.id]?.soir),abs=S.absences[w]?.[r.id]||Array(14).fill(false),pn=S.piquenique[w]||{};
+  S.residents.filter(r=>isResidentActive(r)).forEach(r=>{
     const row=[r.id,r.nom,'Résident',r.regime||'',r.special||'',lm?.nom||'',ls?.nom||''];
     for(let d=0;d<7;d++){const ms=d*2,ss=d*2+1;row.push(abs[ms]?'ABS':pn[`${r.id}_${d}_midi`]?'PN':'OK');row.push(abs[ss]?'ABS':pn[`${r.id}_${d}_soir`]?'PN':'OK')}
     data.push(row);
@@ -4076,6 +4124,7 @@ async function renderAdmAudit(){
       CONNEXION:'🔑 Connexion',DECONNEXION:'🚪 Déconnexion',
       MOT_DE_PASSE_CHANGE:'🔑 Mdp changé',MOT_DE_PASSE_REINITIALISE:'🔑 Mdp réinitialisé',
       ABSENCE_MODIFIEE:'📅 Absence modifiée',RESIDENT_AJOUTE:'👤 Résident ajouté',
+      RESIDENT_DEPART_DEFINITIF:'🚪 Départ définitif',
       RESIDENT_MODIFIE:'✏️ Résident modifié',RESIDENT_SUPPRIME:'🗑️ Résident supprimé',
       COMMANDE_IMPRIMEE:'🖨️ Commande imprimée',EMAIL_ENVOYE:'📧 Email envoyé',
       COMPTE_CREE:'✅ Compte créé',ROLE_MODIFIE:'⚙️ Rôle modifié',
@@ -4192,6 +4241,7 @@ function countRepasByDay(dateObj, lieuId, service, textures){
 
   // Résidents
   S.residents.filter(r=>{
+    if(!isResidentActive(r,dateObj))return false;
     const aff=S.affectations[r.id];
     return service==='midi'?aff?.midi===lieuId:aff?.soir===lieuId;
   }).forEach(r=>{
@@ -4279,6 +4329,7 @@ function countRepasByDayFull(dateObj, lieuId, service, texture){
   let count=0;
 
   S.residents.filter(r=>{
+    if(!isResidentActive(r,dateObj))return false;
     const aff=S.affectations[r.id];
     const defaultLieu=service==='midi'?aff?.midi:aff?.soir;
     const pk=`${r.id}_${dayIdx}_${service}`;
