@@ -417,6 +417,7 @@ tr:hover td{background:rgba(0,0,0,.015)}
 <!-- ===== DASHBOARD ===== -->
 <div class="view active" id="v-dashboard">
   <div class="page-header"><div><h1>Accueil</h1><p class="subtitle" id="dash-sub"></p></div></div>
+  <div id="dash-welcome" style="background:var(--blue-bg);border-left:3px solid var(--blue);border-radius:0 12px 12px 0;padding:14px 20px;margin-bottom:20px;font-size:15px;font-weight:600;color:var(--blue)"></div>
   <div class="cards-grid" id="dash-cards"></div>
   <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:40px;text-align:center;box-shadow:var(--shadow-sm)">
     <div style="margin-bottom:16px"><img src="logo-andapei.png" alt="" style="max-width:200px;height:auto"></div>
@@ -796,6 +797,13 @@ tr:hover td{background:rgba(0,0,0,.015)}
     <div class="modal-head"><h2 id="mtt">Nouveau séjour</h2><button class="modal-close" onclick="closeModal('modal-tempo')">✕</button></div>
     <div class="modal-body">
       <input type="hidden" id="t-id">
+      <div id="t-pick-resident" class="form-group full" style="background:var(--blue-bg);border-radius:8px;padding:12px 14px;margin-bottom:4px">
+        <label style="color:var(--blue)">🔍 Déjà venu en Accueil Temporaire ?</label>
+        <select id="t-pick-existing" onchange="pickExistingResident(this.value)">
+          <option value="">— Saisir un nouveau résident —</option>
+        </select>
+        <p style="font-size:11px;color:var(--txt3);margin-top:6px">Choisissez une personne déjà accueillie pour pré-remplir automatiquement son profil (régime, adaptation, lieux).</p>
+      </div>
       <div class="form-grid">
         <div class="form-group full"><label>Nom *</label><input type="text" id="t-nom"></div>
         <div class="form-group"><label>📅 Arrivée *</label><input type="date" id="t-arr"></div>
@@ -1207,14 +1215,9 @@ async function loadFromSupabase(){
   S.currentYear=getCurYear();
 
   try{
-    // Config (semaine/année courante)
-    const {data:cfg}=await db.from('config').select('*');
-    if(cfg){
-      const weekCfg=cfg.find(c=>c.key==='currentWeek');
-      const yearCfg=cfg.find(c=>c.key==='currentYear');
-      if(weekCfg)S.currentWeek=weekCfg.value;
-      if(yearCfg)S.currentYear=yearCfg.value;
-    }
+    // Note : on n'utilise plus la config 'currentWeek'/'currentYear' sauvegardée pour
+    // déterminer la semaine au démarrage — l'application doit toujours s'ouvrir sur
+    // la semaine calendaire réelle (déjà définie ci-dessus via getCurWeek/getCurYear).
 
     // Residents
     const {data:res}=await db.from('residents').select('*').order('nom');
@@ -1706,6 +1709,11 @@ function updateModifSendBtn(){
 // ============================================================
 function renderDash(){
   const sub=$('dash-sub');if(sub)sub.textContent=`Semaine ${S.currentWeek} — ${S.currentYear}`;
+  const welcome=$('dash-welcome');
+  if(welcome&&currentUser){
+    const r=ROLES[currentUser.role]||{label:'Utilisateur',icon:'👤'};
+    welcome.textContent=`👋 Bonjour ${currentUser.nom} — ${r.label}`;
+  }
   const w=wk(),absC=Object.values(S.absences[w]||{}).reduce((a,s)=>a+s.filter(Boolean).length,0);
   const activeTempos=(S.temporaires||[]).filter(t=>isTempoActive(t,S.currentWeek,S.currentYear)).length;
   $('dash-cards').innerHTML=`
@@ -1939,14 +1947,14 @@ function confirmDeloc(){
 }
 
 function cancelDeloc(){
-  // L'utilisateur a annulé : remettre l'état précédent (PN) puisqu'on l'avait retiré en amont
+  // L'utilisateur a annulé le choix de lieu : retour direct à OK (pas de PN fantôme)
   if(!_delocCtx){closeModal('modal-deloc');return}
   const {pid,dayIdx,svc}=_delocCtx;
   const w=wk();
   const pk=`${pid}_${dayIdx}_${svc}`;
-  S.piquenique[w][pk]=true; // restaurer l'état PN
+  S.piquenique[w][pk]=false; // s'assurer qu'on n'est pas resté en PN
   closeModal('modal-deloc');
-  renderCommande();
+  finishToggle(pid,dayIdx,svc,'PN','OK');
   _delocCtx=null;
 }
 
@@ -2179,17 +2187,18 @@ function renderCommande(){
 
         // CAS 2 : Jour passé + non admin → bloqué avec fond grisé
         if(isPast&&!isAdminUser){
-          return`<button class="repas-btn ${cls}" disabled style="opacity:.35;cursor:not-allowed;filter:grayscale(60%)" title="Date passée">${txt}</button>`;
+          return`<button class="repas-btn" disabled style="background:#e2e4e9;color:#8b909c;border:1px solid #c8cbd4;cursor:not-allowed" title="Date passée">${txt}</button>`;
         }
 
-        // CAS 3 : Jour passé + admin → cliquable, fond légèrement grisé pour indiquer que c'est passé
+        // CAS 3 : Jour passé + admin, commande PAS encore envoyée → cliquable, légère opacité pour signaler "passé"
         if(isPast&&isAdminUser&&!cmdSent){
-          return`<button class="repas-btn ${cls}" onclick="togglePresence('${pid}',${di},'${svc}')" style="opacity:.7;border-style:dashed;font-size:10px" title="Jour passé — modifiable (admin)">${txt}</button>`;
+          return`<button class="repas-btn ${cls}" onclick="togglePresence('${pid}',${di},'${svc}')" style="opacity:.7;font-size:10px" title="Jour passé — modifiable (admin)">${txt}</button>`;
         }
 
-        // CAS 4 : Commande envoyée (passé ou futur) → cadenas orange, cliquable pour tous
+        // CAS 4 : Commande envoyée (passé ou futur) → fond orange clair, cliquable pour tous
         if(cmdSent){
-          return`<button class="repas-btn ${cls}" onclick="togglePresence('${pid}',${di},'${svc}')" style="outline:2px solid var(--amber);outline-offset:1px;font-size:10px" title="Commande envoyée — modification signalée à la cuisine">${txt} 🔒</button>`;
+          const pastTitle = (isPast&&isAdminUser) ? 'Jour passé — ' : '';
+          return`<button class="repas-btn ${cls}" onclick="togglePresence('${pid}',${di},'${svc}')" style="background:var(--amber-bg);border-color:var(--amber-border);font-size:10px" title="${pastTitle}Commande envoyée — modification signalée à la cuisine">${txt} 🔒</button>`;
         }
 
         // CAS 5 : Normal → cliquable
@@ -2738,7 +2747,7 @@ function openTempoModal(id){
     hg+=`<label class="checkbox-label"><input type="checkbox" id="hab-${i}-s" checked> Soir</label>`;
   });
   $('t-hab').innerHTML=hg;
-  
+
   if(id){
     const t=S.temporaires.find(x=>x.id===id);if(!t)return;
     $('mtt').textContent='Modifier séjour';$('t-id').value=id;$('t-nom').value=t.nom;
@@ -2746,12 +2755,46 @@ function openTempoModal(id){
     $('t-reg').value=t.regime;$('t-spe').value=t.special||'';
     $('t-por').value=t.portions||1;$('t-ada').value=t.adapt||'';
     if(t.habitudes){for(let i=0;i<7;i++){const m=$(`hab-${i}-m`),s=$(`hab-${i}-s`);if(m)m.checked=t.habitudes[i*2]!==false;if(s)s.checked=t.habitudes[i*2+1]!==false}}
+    // Mode édition : pas de sélecteur résident existant
+    const pick=$('t-pick-resident');if(pick)pick.style.display='none';
   }else{
     $('mtt').textContent='Nouveau séjour';$('t-id').value='';$('t-nom').value='';$('t-arr').value='';$('t-dep').value='';
     $('t-lm').value='';$('t-ls').value='';
     $('t-reg').value=S.textures[0]?.nom||'Normal';$('t-spe').value='';$('t-por').value=1;$('t-ada').value='';
+    // Mode création : afficher le sélecteur et peupler avec les profils AT déjà existants
+    // (un même résident en AT peut revenir plusieurs fois — on propose son dernier profil par nom unique)
+    const pick=$('t-pick-resident');if(pick)pick.style.display='';
+    const picker=$('t-pick-existing');
+    if(picker){
+      picker.value='';
+      // Dédoublonner par nom : garder le séjour le plus récent de chaque personne
+      const byName={};
+      (S.temporaires||[]).forEach(t=>{
+        if(!byName[t.nom]||new Date(t.dateArrivee)>new Date(byName[t.nom].dateArrivee)){
+          byName[t.nom]=t;
+        }
+      });
+      const profils=Object.values(byName).sort((a,b)=>a.nom.localeCompare(b.nom));
+      picker.innerHTML='<option value="">— Saisir un nouveau résident —</option>'+
+        profils.map(t=>`<option value="${t.id}">${t.nom}</option>`).join('');
+    }
   }
   openModal('modal-tempo');
+}
+
+// Pré-remplit le formulaire avec les infos d'un profil AT déjà existant (séjour précédent)
+function pickExistingResident(tempoId){
+  if(!tempoId)return;
+  const t=S.temporaires.find(x=>x.id===tempoId);
+  if(!t)return;
+  $('t-nom').value=t.nom;
+  $('t-reg').value=t.regime||S.textures[0]?.nom||'Normal';
+  $('t-spe').value=t.special||'';
+  $('t-por').value=t.portions||1;
+  $('t-ada').value=t.adapt||'';
+  $('t-lm').value=t.lieuMidi||'';
+  $('t-ls').value=t.lieuSoir||'';
+  toast(`Informations de ${t.nom} pré-remplies`,'success');
 }
 
 function saveTemporaire(){
@@ -2982,13 +3025,14 @@ function grpRow(g,fm,fs,label,total,isPn,isAdminUser,cmdSent){
     const mkCell=(field,val,hasOv,svc)=>{
       // CAS 1 : jour passé, non admin → lecture seule grisée
       if(past && !isAdminUser){
-        return `<div style="text-align:center;font-weight:700;font-size:13px;opacity:.4;padding:6px 0" title="Date passée">${val}</div>`;
+        return `<div style="text-align:center;font-weight:700;font-size:13px;background:#e2e4e9;color:#8b909c;border-radius:6px;padding:6px 0" title="Date passée">${val}</div>`;
       }
-      // CAS 2 : jour passé, admin → modifiable, fond léger pour signaler "passé"
-      const lockStyle = cmdSent ? 'outline:2px solid var(--amber);outline-offset:1px;border-radius:6px' : '';
-      const pastStyle = (past && isAdminUser) ? 'opacity:.75;' : '';
-      const ovBadge = hasOv ? `<span style="position:absolute;top:-4px;right:-4px;width:8px;height:8px;border-radius:50%;background:var(--blue)" title="Valeur modifiée pour cette semaine"></span>` : '';
-      return `<div class="nombre-cell" style="position:relative;${pastStyle}${lockStyle}">${ovBadge}<button class="nombre-btn" onclick="updGrpVal('${g.id}','${field}',${i},-1)">−</button><input class="nombre-input" value="${val}" onchange="setGrpVal('${g.id}','${field}',${i},+this.value)"><button class="nombre-btn" onclick="updGrpVal('${g.id}','${field}',${i},1)">+</button></div>`;
+      // CAS 2 : jour passé, admin → modifiable. Fond orange si commande envoyée (cumulable), sinon fond normal.
+      let cellBg = cmdSent ? '#fdf0d5' : 'var(--bg)';
+      const btnStyle = `background:${cellBg};`;
+      const ovBadge = hasOv ? `<span style="position:absolute;top:-4px;right:-4px;width:8px;height:8px;border-radius:50%;background:var(--blue);z-index:2" title="Valeur modifiée pour cette semaine"></span>` : '';
+      const titleAttr = `${past&&isAdminUser?'Jour passé — modifiable (admin). ':''}${cmdSent?'Commande envoyée — modification signalée à la cuisine':''}`;
+      return `<div class="nombre-cell" style="position:relative" title="${titleAttr}">${ovBadge}<button class="nombre-btn" style="${btnStyle}border-right:none" onclick="updGrpVal('${g.id}','${field}',${i},-1)">−</button><input class="nombre-input" style="${btnStyle}" value="${val}" onchange="setGrpVal('${g.id}','${field}',${i},+this.value)"><button class="nombre-btn" style="${btnStyle}border-left:none" onclick="updGrpVal('${g.id}','${field}',${i},1)">+</button></div>`;
     };
 
     cells+=`<td colspan="2" style="padding:2px"><div style="display:flex;gap:2px"><div style="flex:1;padding:2px;border-right:1px solid var(--border)">${mkCell(fm,vm,ovM,'midi')}</div><div style="flex:1;padding:2px">${mkCell(fs,vs,ovS,'soir')}</div></div></td>`;
@@ -3737,6 +3781,21 @@ function onLoginSuccess(){
     }
   },200);
   toast(`Bonjour ${currentUser.nom} 👋`,'success');
+
+  // Nettoyage automatique du journal d'audit (entrées > 3 mois), en arrière-plan,
+  // déclenché par un compte superadmin, au maximum une fois par jour pour éviter les appels répétés.
+  if(currentUser.role==='superadmin'){
+    try{
+      const lastPurgeKey='msp_last_audit_purge';
+      const last=localStorage.getItem(lastPurgeKey);
+      const today=new Date().toISOString().slice(0,10);
+      if(last!==today){
+        purgeOldAuditLogs(true).then(()=>{
+          try{localStorage.setItem(lastPurgeKey,today)}catch(e){}
+        });
+      }
+    }catch(e){/* localStorage indisponible, on ignore silencieusement */}
+  }
 }
 
 function updateUserUI(){
@@ -3811,18 +3870,26 @@ async function renderAdmRequests(){
       pending.forEach(r=>{
         h+=`<tr><td style="font-weight:600">${r.nom}</td><td>${r.email}</td><td style="color:var(--txt2);font-size:12px">${r.message||'—'}</td>`;
         h+=`<td style="font-size:12px;color:var(--txt3)">${new Date(r.created_at).toLocaleDateString('fr-FR')}</td>`;
-        h+=`<td style="text-align:right"><button class="btn btn-success btn-sm" onclick="approveRequest('${r.id}','${r.nom}','${r.email}')">✅ Valider</button> <button class="btn btn-outline btn-sm" onclick="rejectRequest('${r.id}')">❌</button></td></tr>`;
+        h+=`<td style="text-align:right"><button class="btn btn-success btn-sm" onclick="approveRequest('${r.id}','${r.nom}','${r.email}')">✅ Valider</button> <button class="btn btn-outline btn-sm" onclick="rejectRequest('${r.id}')">❌</button>`;
+        if(currentUser?.role==='superadmin'){
+          h+=` <button class="action-btn" onclick="deleteAccessRequest('${r.id}','${r.nom}')" title="Supprimer définitivement">🗑️</button>`;
+        }
+        h+=`</td></tr>`;
       });
       h+=`</tbody></table></div>`;
     }
     if(others.length){
       h+=`<div class="section-divider">Traitées</div>`;
-      h+=`<div class="table-box"><table><thead><tr><th>Nom</th><th>Email</th><th>Statut</th><th>Date</th></tr></thead><tbody>`;
+      h+=`<div class="table-box"><table><thead><tr><th>Nom</th><th>Email</th><th>Statut</th><th>Date</th>${currentUser?.role==='superadmin'?'<th style="text-align:right">Actions</th>':''}</tr></thead><tbody>`;
       others.forEach(r=>{
         const isOk=r.status==='approved';
         h+=`<tr><td style="font-weight:600">${r.nom}</td><td>${r.email}</td>`;
         h+=`<td><span class="badge" style="background:${isOk?'var(--green-bg)':'var(--red-bg)'};color:${isOk?'var(--green)':'var(--red)'}">${isOk?'✅ Approuvée':'❌ Refusée'}</span></td>`;
-        h+=`<td style="font-size:12px;color:var(--txt3)">${new Date(r.created_at).toLocaleDateString('fr-FR')}</td></tr>`;
+        h+=`<td style="font-size:12px;color:var(--txt3)">${new Date(r.created_at).toLocaleDateString('fr-FR')}</td>`;
+        if(currentUser?.role==='superadmin'){
+          h+=`<td style="text-align:right"><button class="action-btn" onclick="deleteAccessRequest('${r.id}','${r.nom}')" title="Supprimer définitivement">🗑️</button></td>`;
+        }
+        h+=`</tr>`;
       });
       h+=`</tbody></table></div>`;
     }
@@ -3889,6 +3956,25 @@ async function rejectRequest(id){
   });
 }
 
+async function deleteAccessRequest(id,nom){
+  if(currentUser?.role!=='superadmin'){toast('Réservé au Super Admin','error');return}
+  showConfirm(
+    '🗑️ Supprimer définitivement cette demande ?',
+    `${nom} — cette action est irréversible.`,
+    async()=>{
+      const {error}=await db.from('access_requests').delete().eq('id',id);
+      if(error){
+        console.error('Erreur suppression demande:',error);
+        toast(`Erreur : ${error.message||'suppression impossible'}`,'error',6000);
+        return;
+      }
+      await auditLog('DEMANDE_ACCES_SUPPRIMEE',{nom});
+      toast('Demande supprimée définitivement','success');
+      renderAdmTab();
+    }
+  );
+}
+
 async function renderAdmUsers(){
   const c=$('adm-tab-content');
   c.innerHTML='<div class="empty-state">Chargement…</div>';
@@ -3907,6 +3993,9 @@ async function renderAdmUsers(){
       h+=`<td style="text-align:right"><button class="btn btn-outline btn-sm" onclick="openEditRole('${u.id}','${u.nom}','${u.email}','${u.role}')">✏️ Rôle</button> `;
       h+=`<button class="btn btn-outline btn-sm" onclick="openResetPw('${u.id}','${u.nom}')">🔑 Mdp</button> `;
       if(!isMe)h+=`<button class="action-btn" onclick="toggleUserActif('${u.id}',${u.actif},'${u.nom}')">${u.actif?'🔒':'🔓'}</button>`;
+      if(!isMe&&currentUser?.role==='superadmin'){
+        h+=` <button class="action-btn" onclick="deleteUserCompletely('${u.id}','${u.nom}')" title="Supprimer définitivement le compte">🗑️</button>`;
+      }
       h+=`</td></tr>`;
     });
     h+=`</tbody></table></div>`;
@@ -3958,6 +4047,25 @@ async function toggleUserActif(id,actif,nom){
   });
 }
 
+async function deleteUserCompletely(id,nom){
+  if(currentUser?.role!=='superadmin'){toast('Réservé au Super Admin','error');return}
+  showConfirm(
+    '🗑️ Supprimer définitivement ce compte ?',
+    `${nom} — Cette action est irréversible. Le compte ne pourra pas être restauré. La personne devra refaire une demande d'accès si besoin.`,
+    async()=>{
+      const {error}=await db.from('msp_users').delete().eq('id',id);
+      if(error){
+        console.error('Erreur suppression utilisateur:',error);
+        toast(`Erreur : ${error.message||'suppression impossible (vérifiez les permissions Supabase)'}`,'error',6000);
+        return;
+      }
+      await auditLog('COMPTE_SUPPRIME_DEFINITIVEMENT',{nom});
+      toast(`Compte de ${nom} supprimé définitivement`,'success');
+      renderAdmTab();
+    }
+  );
+}
+
 async function renderAdmAudit(){
   const c=$('adm-tab-content');
   c.innerHTML='<div class="empty-state">Chargement…</div>';
@@ -3974,9 +4082,18 @@ async function renderAdmAudit(){
       COMPTE_DESACTIVE:'🔒 Compte désactivé',COMPTE_ACTIVE:'🔓 Compte activé',
       TEMPORAIRE_AJOUTE:'🏠 AT ajouté',TEMPORAIRE_MODIFIE:'✏️ AT modifié',
       ABSENCE_PLANIFIEE_AJOUTEE:'📅 Absence planifiée',
-      GROUPE_MODIFIE:'👨‍🍳 Groupe modifié',LIEU_MODIFIE:'📍 Lieu modifié'
+      GROUPE_MODIFIE:'👨‍🍳 Groupe modifié',LIEU_MODIFIE:'📍 Lieu modifié',
+      JOURNAL_PURGE:'🧹 Journal nettoyé',COMPTE_SUPPRIME_DEFINITIVEMENT:'🗑️ Compte supprimé définitivement',
+      DEMANDE_ACCES_SUPPRIMEE:'🗑️ Demande supprimée'
     };
-    let h=`<div class="table-box"><table><thead><tr><th>Date / Heure</th><th>Utilisateur</th><th>Action</th><th>Détails</th></tr></thead><tbody>`;
+    let h='';
+    if(currentUser?.role==='superadmin'){
+      h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <p style="font-size:12px;color:var(--txt3)">Affichage des 200 entrées les plus récentes. Le journal conserve automatiquement 3 mois d'historique.</p>
+        <button class="btn btn-outline btn-sm" onclick="manualPurgeAuditLog()">🧹 Nettoyer maintenant (&gt;3 mois)</button>
+      </div>`;
+    }
+    h+=`<div class="table-box"><table><thead><tr><th>Date / Heure</th><th>Utilisateur</th><th>Action</th><th>Détails</th></tr></thead><tbody>`;
     data.forEach(l=>{
       const d=new Date(l.created_at);
       const label=actionLabels[l.action]||l.action;
@@ -3990,6 +4107,41 @@ async function renderAdmAudit(){
     h+=`</tbody></table></div>`;
     c.innerHTML=h;
   }catch(e){c.innerHTML='<div class="empty-state">Erreur de chargement</div>'}
+}
+
+// Purge les entrées du journal d'audit de plus de 3 mois.
+// silent=true : pas de toast (appel automatique en arrière-plan)
+async function purgeOldAuditLogs(silent){
+  if(!db)return;
+  try{
+    const cutoff=new Date();
+    cutoff.setMonth(cutoff.getMonth()-3);
+    const {error,count}=await db.from('audit_log').delete({count:'exact'}).lt('created_at',cutoff.toISOString());
+    if(error){
+      console.warn('Purge journal audit error:',error);
+      if(!silent)toast('Erreur lors du nettoyage : '+error.message,'error');
+      return;
+    }
+    if(!silent){
+      toast(count>0?`${count} entrée(s) de plus de 3 mois supprimée(s)`:'Aucune entrée à nettoyer','success');
+    }
+  }catch(e){
+    console.warn('Purge journal audit error:',e);
+    if(!silent)toast('Erreur lors du nettoyage','error');
+  }
+}
+
+async function manualPurgeAuditLog(){
+  if(currentUser?.role!=='superadmin'){toast('Réservé au Super Admin','error');return}
+  showConfirm(
+    "🧹 Nettoyer le journal d'activité ?",
+    'Toutes les entrées de plus de 3 mois seront supprimées définitivement. Les entrées récentes ne sont pas affectées.',
+    async()=>{
+      await purgeOldAuditLogs(false);
+      await auditLog('JOURNAL_PURGE',{});
+      renderAdmAudit();
+    }
+  );
 }
 
 // Ajouter renderAdmTab au map de navigation
