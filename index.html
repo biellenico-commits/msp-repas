@@ -1901,10 +1901,14 @@ function importCommandeExcel(event){
         imported++;
       }
 
-      save('absences');
-      // Sauvegarder piquenique aussi
+      // Sauvegarde locale immédiate + sync Supabase unique (absences + piquenique)
+      localStorage.setItem('msp_state_cache',JSON.stringify(S));
+      setSave('saving','⏳ Sync…');
       clearTimeout(saveTimer);
-      saveTimer=setTimeout(()=>pushToSupabase('piquenique'),800);
+      saveTimer=setTimeout(()=>{
+        pushToSupabase('absences');
+        pushToSupabase('piquenique');
+      },800);
 
       renderCommande();
       auditLog('COMMANDE_IMPORTEE_EXCEL',{semaine:w,lignes:imported});
@@ -1955,9 +1959,16 @@ function finishToggle(pid,dayIdx,svc,oldV,newV){
   const w=wk();
   trackMod(pid,dayIdx,svc,oldV,newV);
   auditLog('ABSENCE_MODIFIEE',{resident:pid,jour:DAYS[dayIdx],service:svc,de:oldV,vers:newV});
-  save('absences');
+  // Sauvegarde locale immédiate + sync Supabase unique englobant tout ce qui a pu changer
+  // (absences, piquenique, délocalisations) pour éviter qu'un timer en écrase un autre.
+  localStorage.setItem('msp_state_cache',JSON.stringify(S));
+  setSave('saving','⏳ Sync…');
   clearTimeout(saveTimer);
-  saveTimer=setTimeout(()=>{pushToSupabase('piquenique');pushToSupabase('delocalisations')},800);
+  saveTimer=setTimeout(()=>{
+    pushToSupabase('absences');
+    pushToSupabase('piquenique');
+    pushToSupabase('delocalisations');
+  },800);
   renderCommande();
   updateModifSendBtn();
 }
