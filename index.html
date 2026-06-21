@@ -527,14 +527,13 @@ tr:hover td{background:rgba(0,0,0,.015)}
 <!-- ===== TEMPORAIRES ===== -->
 <div class="view" id="v-temporaires">
   <div class="page-header">
-    <div><h1>Accueil Temporaire</h1><p class="subtitle">Séjours temporaires</p></div>
-    <button class="btn btn-primary btn-sm perm-absences" onclick="openTempoModal()">+ Nouveau séjour</button>
+    <div><h1>Accueil Temporaire</h1><p class="subtitle">Profils des personnes accueillies ponctuellement</p></div>
+    <button class="btn btn-primary btn-sm perm-absences" onclick="openTempoModal()">+ Nouveau profil</button>
   </div>
-  <div class="info-box">💡 Les AT apparaissent automatiquement dans les commandes pendant leur séjour.</div>
   <div class="filter-bar" id="tempo-filters"></div>
   <div class="table-box">
     <div class="table-top">
-      <h2>Séjours — <span id="tempo-count">0</span></h2>
+      <h2>Profils — <span id="tempo-count">0</span></h2>
       <input class="search-input" type="text" placeholder="Rechercher…" oninput="renderTemporaires()" id="tempo-search">
     </div>
     <div id="tempo-table"></div>
@@ -814,32 +813,26 @@ tr:hover td{background:rgba(0,0,0,.015)}
 <!-- Modal Temporaire -->
 <div class="modal-overlay" id="modal-tempo">
   <div class="modal">
-    <div class="modal-head"><h2 id="mtt">Nouveau séjour</h2><button class="modal-close" onclick="closeModal('modal-tempo')">✕</button></div>
+    <div class="modal-head"><h2 id="mtt">Nouveau profil Accueil Temporaire</h2><button class="modal-close" onclick="closeModal('modal-tempo')">✕</button></div>
     <div class="modal-body">
       <input type="hidden" id="t-id">
       <div id="t-pick-resident" class="form-group full" style="background:var(--blue-bg);border-radius:8px;padding:12px 14px;margin-bottom:4px">
         <label style="color:var(--blue)">🔍 Déjà venu en Accueil Temporaire ?</label>
         <select id="t-pick-existing" onchange="pickExistingResident(this.value)">
-          <option value="">— Saisir un nouveau résident —</option>
+          <option value="">— Saisir un nouveau profil —</option>
         </select>
         <p style="font-size:11px;color:var(--txt3);margin-top:6px">Choisissez une personne déjà accueillie pour pré-remplir automatiquement son profil (régime, adaptation, lieux).</p>
       </div>
       <div class="form-grid">
         <div class="form-group full"><label>Nom *</label><input type="text" id="t-nom"></div>
-        <div class="form-group"><label>📅 Arrivée *</label><input type="date" id="t-arr"></div>
-        <div class="form-group"><label>📅 Départ *</label><input type="date" id="t-dep"></div>
         <div class="form-group"><label>🍽 Lieu midi</label><select id="t-lm"></select></div>
         <div class="form-group"><label>🌙 Lieu soir</label><select id="t-ls"></select></div>
-
         <div class="form-group"><label>Texture *</label><select id="t-reg"></select></div>
         <div class="form-group"><label>Régime spécial</label><select id="t-spe"></select></div>
         <div class="form-group"><label>Portions</label><input type="number" id="t-por" min="0" max="10" step="0.5" value="1"></div>
         <div class="form-group"><label>⚠ Adaptation</label><input type="text" id="t-ada"></div>
-        <div class="form-group full" style="border-top:1px solid var(--border);padding-top:16px;margin-top:8px">
-          <label>📅 Habitudes alimentaires <span style="font-weight:400;font-size:10px;color:var(--txt3);text-transform:none;letter-spacing:0">(Cocher les repas pris)</span></label>
-          <div id="t-hab" style="display:grid;grid-template-columns:100px auto auto;gap:8px 16px;align-items:center;max-width:500px;margin-top:8px"></div>
-        </div>
       </div>
+      <p style="font-size:12px;color:var(--txt3);margin-top:14px">💡 Une fois ce profil créé, activez-le pour la semaine de votre choix depuis l'onglet Accueil Temporaire — il apparaîtra alors dans Commande/Absences comme un résident, pour cette semaine uniquement.</p>
     </div>
     <div class="modal-foot"><button class="btn btn-outline" onclick="closeModal('modal-tempo')">Annuler</button><button class="btn btn-primary" onclick="saveTemporaire()">Enregistrer</button></div>
   </div>
@@ -1012,7 +1005,36 @@ function getReg(n){return S.regimesSpeciaux.find(r=>r.nom===n)}
 function fmtDate(d){if(!d)return'—';try{return new Date(d).toLocaleDateString('fr-FR')}catch{return'—'}}
 function getDateForDay(week,dayIdx){const y=S.currentYear,j=new Date(y,0,1),off=(j.getDay()===0?-6:1)-j.getDay(),m=new Date(j);m.setDate(j.getDate()+off+(week-1)*7+dayIdx);return m}
 function isDatePast(dayIdx){const d=getDateForDay(S.currentWeek,dayIdx),t=new Date();d.setHours(0,0,0,0);t.setHours(0,0,0,0);return d<t}
-function isTempoActive(t,w,y){if(t.archived)return false;const j=new Date(y,0,1),off=(j.getDay()===0?-6:1)-j.getDay(),mon=new Date(j);mon.setDate(j.getDate()+off+(w-1)*7);mon.setHours(0,0,0,0);const sun=new Date(mon);sun.setDate(mon.getDate()+6);sun.setHours(23,59,59,999);const db=new Date(t.dateArrivee);db.setHours(0,0,0,0);const fn=new Date(t.dateDepart);fn.setHours(23,59,59,999);return db<=sun&&fn>=mon}
+// Un profil AT est actif pour une semaine donnée s'il a été explicitement
+// "activé" pour cette semaine (liste S.tempoActivations[week_year]).
+// Plus aucune notion de dates arrivée/départ : l'activation est ponctuelle, semaine par semaine.
+function isTempoActive(t,w,y){
+  const wkKey=`${y}_${w}`;
+  const list=S.tempoActivations?.[wkKey]||[];
+  return list.includes(t.id);
+}
+
+// Active/désactive un profil AT pour la semaine COURANTE (S.currentWeek/S.currentYear)
+function toggleTempoActivation(tempoId){
+  const wkKey=wk();
+  if(!S.tempoActivations)S.tempoActivations={};
+  if(!S.tempoActivations[wkKey])S.tempoActivations[wkKey]=[];
+  const idx=S.tempoActivations[wkKey].indexOf(tempoId);
+  const t=S.temporaires.find(x=>x.id===tempoId);
+  if(idx>=0){
+    S.tempoActivations[wkKey].splice(idx,1);
+    auditLog('AT_DESACTIVE_SEMAINE',{nom:t?.nom,semaine:wkKey});
+    toast(`${t?.nom} désactivé pour cette semaine`,'info');
+  }else{
+    S.tempoActivations[wkKey].push(tempoId);
+    auditLog('AT_ACTIVE_SEMAINE',{nom:t?.nom,semaine:wkKey});
+    toast(`${t?.nom} activé pour cette semaine`,'success');
+  }
+  save('tempo_activations');
+  renderTemporaires();
+  const v=document.querySelector('.view.active');
+  if(v&&v.id==='v-commande')renderCommande();
+}
 function isPlannedAbs(rid,dayIdx,svc){
   const d=getDateForDay(S.currentWeek,dayIdx);
   const dd=new Date(d.getFullYear(),d.getMonth(),d.getDate());
@@ -1212,7 +1234,8 @@ const defaultState={
   ],
   plannedAbsences:[],affectations:{},absences:{},piquenique:{},printHistory:{},bonsModification:[],
   delocalisations:{}, // {week_year: {pid_dayIdx_svc: lieuId}} — changement ponctuel de lieu
-  groupesOverrides:{} // {week_year: {groupeId: {vals:[7], valsSoir:[7], valsPn:[7], valsSoirPn:[7]}}}
+  groupesOverrides:{}, // {week_year: {groupeId: {vals:[7], valsSoir:[7], valsPn:[7], valsSoirPn:[7]}}}
+  tempoActivations:{} // {week_year: [tempoId1, tempoId2, ...]} — profils AT actifs cette semaine-là
 };
 
 let S=null, cmdFilter='all', resFilter='all', resStatusFilter='active', tempoFilt='all', regTab='textures', _cfCb=null, bonDelId=null;
@@ -1270,15 +1293,22 @@ async function loadFromSupabase(){
       res.forEach(r=>{S.affectations[r.id]={midi:r.lieu_midi||'',soir:r.lieu_soir||''}});
     }
 
-    // Temporaires
-    const {data:temps}=await db.from('temporaires').select('*').eq('archived',false).order('date_arrivee',{ascending:false});
+    // Temporaires (profils AT, sans dates — activation gérée par semaine via tempo_activations)
+    const {data:temps}=await db.from('temporaires').select('*').order('nom');
     if(temps){
       S.temporaires=temps.map(t=>({
-        id:t.id,nom:t.nom,dateArrivee:t.date_arrivee,dateDepart:t.date_depart,
+        id:t.id,nom:t.nom,
         lieuMidi:t.lieu_midi||'',lieuSoir:t.lieu_soir||'',
         regime:t.regime||'Normal',special:t.special||'',portions:t.portions||1,
-        adapt:t.adapt||'',habitudes:t.habitudes||null,archived:t.archived||false
+        adapt:t.adapt||''
       }));
+    }
+
+    // Activations hebdomadaires des profils AT
+    const {data:tAct}=await db.from('tempo_activations').select('*');
+    S.tempoActivations={};
+    if(tAct){
+      tAct.forEach(a=>{S.tempoActivations[a.semaine]=a.tempo_ids||[]});
     }
 
     // Lieux
@@ -1447,12 +1477,24 @@ async function pushToSupabase(section='all'){
     if(section==='all'||section==='temporaires'){
       if(S.temporaires.length>0){
         const rows=S.temporaires.map(t=>({
-          id:t.id,nom:t.nom,date_arrivee:t.dateArrivee,date_depart:t.dateDepart,
+          id:t.id,nom:t.nom,
           lieu_midi:t.lieuMidi||null,lieu_soir:t.lieuSoir||null,
           regime:t.regime,special:t.special,portions:t.portions,
-          adapt:t.adapt,habitudes:t.habitudes,archived:t.archived||false
+          adapt:t.adapt
         }));
         await db.from('temporaires').upsert(rows,{onConflict:'id'});
+      }
+    }
+
+    if(section==='all'||section==='tempo_activations'){
+      const semaines=Object.keys(S.tempoActivations||{});
+      for(const sem of semaines){
+        const ids=S.tempoActivations[sem]||[];
+        if(ids.length>0){
+          await db.from('tempo_activations').upsert({semaine:sem,tempo_ids:ids},{onConflict:'semaine'});
+        } else {
+          await db.from('tempo_activations').delete().eq('semaine',sem);
+        }
       }
     }
 
@@ -2189,7 +2231,14 @@ function renderCommande(){
   S.lieux.filter(l=>!l.isStaffOnly).forEach(l=>{f.innerHTML+=`<button class="filter-btn ${cmdFilter===l.id?'active':''}" onclick="filterCmd('${l.id}',this)">${l.nom}</button>`});
   
   const search=($('cmd-search')?.value||'').toLowerCase();
-  let persons=S.residents.filter(r=>isResidentActive(r)).filter(r=>{if(cmdFilter!=='all'&&S.affectations[r.id]?.midi!==cmdFilter)return false;return!search||r.nom.toLowerCase().includes(search)});
+  let persons=S.residents.filter(r=>{
+    // Actif si au moins un jour de la semaine affichée est dans sa période de présence
+    // (et pas seulement "aujourd'hui" — important pour consulter/modifier des semaines passées ou futures)
+    for(let di=0;di<7;di++){
+      if(isResidentActive(r,getDateForDay(S.currentWeek,di)))return true;
+    }
+    return false;
+  }).filter(r=>{if(cmdFilter!=='all'&&S.affectations[r.id]?.midi!==cmdFilter)return false;return!search||r.nom.toLowerCase().includes(search)});
   const tempos=(S.temporaires||[]).filter(t=>{if(!isTempoActive(t,S.currentWeek,S.currentYear))return false;if(cmdFilter!=='all'&&t.lieuMidi!==cmdFilter&&t.lieuSoir!==cmdFilter)return false;return true});
   persons=[...persons,...tempos.map(t=>({...t,isTempo:true}))];
   persons.sort((a,b)=>{const la=a.isTempo?(a.lieuMidi||''):(S.affectations[a.id]?.midi||''),lb=b.isTempo?(b.lieuMidi||''):(S.affectations[b.id]?.midi||'');return la.localeCompare(lb)||(a.nom||'').localeCompare(b.nom||'')});
@@ -2219,6 +2268,10 @@ function renderCommande(){
       const mDel=S.delocalisations?.[w]?.[`${pid}_${di}_midi`],sDel=S.delocalisations?.[w]?.[`${pid}_${di}_soir`];
       let mHab=true,sHab=true;
       if(p.isTempo&&p.habitudes){mHab=p.habitudes[ms]!==false;sHab=p.habitudes[ss]!==false}
+      if(!p.isTempo){
+        const dActive=isResidentActive(p,getDateForDay(S.currentWeek,di));
+        if(!dActive){mHab=false;sHab=false}
+      }
       
       const cmdSent=!!(S.printHistory?.[w]?.printDate);
       const isAdminUser=currentUser&&(currentUser.role==='responsable'||currentUser.role==='superadmin');
@@ -2317,10 +2370,10 @@ function renderTotaux(){
       const jS={jour:DAYS[di],service:'Soir',regimes:{},pnRegimes:{},tem:0};
       
       sites[siteName].forEach(lieu=>{
-        S.residents.filter(p=>isResidentActive(p)).forEach(p=>{
+        S.residents.filter(p=>isResidentActive(p,getDateForDay(S.currentWeek,di))).forEach(p=>{
           if(getEffectiveLieu(p.id,di,'midi',S.affectations[p.id]?.midi)===lieu.id&&!isAbsentSlot(p.id,di,'midi')){const pk=`${p.id}_${di}_midi`,isPn=S.piquenique[w]?.[pk];const k=`${p.regime}${p.special?' + '+p.special:''}`;if(isPn){pnSet.add(k);jM.pnRegimes[k]=(jM.pnRegimes[k]||0)+1}else{regSet.add(k);jM.regimes[k]=(jM.regimes[k]||0)+1}}
         });
-        S.residents.filter(p=>isResidentActive(p)).forEach(p=>{
+        S.residents.filter(p=>isResidentActive(p,getDateForDay(S.currentWeek,di))).forEach(p=>{
           if(getEffectiveLieu(p.id,di,'soir',S.affectations[p.id]?.soir)===lieu.id&&!isAbsentSlot(p.id,di,'soir')){const pk=`${p.id}_${di}_soir`,isPn=S.piquenique[w]?.[pk];const k=`${p.regime}${p.special?' + '+p.special:''}`;if(isPn){pnSet.add(k);jS.pnRegimes[k]=(jS.pnRegimes[k]||0)+1}else{regSet.add(k);jS.regimes[k]=(jS.regimes[k]||0)+1}}
         });
         (S.temporaires||[]).filter(t=>isTempoActive(t,S.currentWeek,S.currentYear)).forEach(t=>{
@@ -2397,8 +2450,8 @@ function confirmPrint(){
           if(!map.has(k))map.set(k,{midi:Array(7).fill(0),soir:Array(7).fill(0)});
           map.get(k)[svc][di]++;
         };
-        S.residents.filter(p=>isResidentActive(p)&&getEffectiveLieu(p.id,di,'midi',S.affectations[p.id]?.midi)===lieu.id).forEach(p=>addP(p,'midi'));
-        S.residents.filter(p=>isResidentActive(p)&&getEffectiveLieu(p.id,di,'soir',S.affectations[p.id]?.soir)===lieu.id).forEach(p=>addP(p,'soir'));
+        S.residents.filter(p=>isResidentActive(p,getDateForDay(S.currentWeek,di))&&getEffectiveLieu(p.id,di,'midi',S.affectations[p.id]?.midi)===lieu.id).forEach(p=>addP(p,'midi'));
+        S.residents.filter(p=>isResidentActive(p,getDateForDay(S.currentWeek,di))&&getEffectiveLieu(p.id,di,'soir',S.affectations[p.id]?.soir)===lieu.id).forEach(p=>addP(p,'soir'));
         (S.temporaires||[]).filter(t=>isTempoActive(t,week,year)).forEach(t=>{
           if(t.lieuMidi===lieu.id&&(!t.habitudes||t.habitudes[di*2]!==false))addP(t,'midi');
           if(t.lieuSoir===lieu.id&&(!t.habitudes||t.habitudes[di*2+1]!==false))addP(t,'soir');
@@ -2469,8 +2522,8 @@ function buildCommandeHTML(){
           if(!map.has(k))map.set(k,{midi:Array(7).fill(0),soir:Array(7).fill(0)});
           map.get(k)[svc][di]++;
         };
-        S.residents.filter(p=>isResidentActive(p)&&getEffectiveLieu(p.id,di,'midi',S.affectations[p.id]?.midi)===lieu.id).forEach(p=>addP(p,'midi'));
-        S.residents.filter(p=>isResidentActive(p)&&getEffectiveLieu(p.id,di,'soir',S.affectations[p.id]?.soir)===lieu.id).forEach(p=>addP(p,'soir'));
+        S.residents.filter(p=>isResidentActive(p,getDateForDay(S.currentWeek,di))&&getEffectiveLieu(p.id,di,'midi',S.affectations[p.id]?.midi)===lieu.id).forEach(p=>addP(p,'midi'));
+        S.residents.filter(p=>isResidentActive(p,getDateForDay(S.currentWeek,di))&&getEffectiveLieu(p.id,di,'soir',S.affectations[p.id]?.soir)===lieu.id).forEach(p=>addP(p,'soir'));
         (S.temporaires||[]).filter(t=>isTempoActive(t,week,year)).forEach(t=>{
           if(t.lieuMidi===lieu.id&&(!t.habitudes||t.habitudes[di*2]!==false))addP(t,'midi');
           if(t.lieuSoir===lieu.id&&(!t.habitudes||t.habitudes[di*2+1]!==false))addP(t,'soir');
@@ -2618,8 +2671,8 @@ function calcTotauxByLieu(weekData){
         const del=weekData.delocalisations?.[pk];
         return del||defaultLieuId;
       };
-      S.residents.filter(p=>isResidentActive(p)&&getEffLieuSnap(p,'midi',S.affectations[p.id]?.midi)===lieu.id).forEach(p=>addP(p,'midi'));
-      S.residents.filter(p=>isResidentActive(p)&&getEffLieuSnap(p,'soir',S.affectations[p.id]?.soir)===lieu.id).forEach(p=>addP(p,'soir'));
+      S.residents.filter(p=>isResidentActive(p,getDateForDay(S.currentWeek,di))&&getEffLieuSnap(p,'midi',S.affectations[p.id]?.midi)===lieu.id).forEach(p=>addP(p,'midi'));
+      S.residents.filter(p=>isResidentActive(p,getDateForDay(S.currentWeek,di))&&getEffLieuSnap(p,'soir',S.affectations[p.id]?.soir)===lieu.id).forEach(p=>addP(p,'soir'));
       (S.temporaires||[]).filter(t=>isTempoActive(t,S.currentWeek,S.currentYear)).forEach(t=>{
         if(t.lieuMidi===lieu.id&&(!t.habitudes||t.habitudes[di*2]!==false))addP(t,'midi');
         if(t.lieuSoir===lieu.id&&(!t.habitudes||t.habitudes[di*2+1]!==false))addP(t,'soir');
@@ -2808,20 +2861,24 @@ function deleteResident(id){showConfirm('Supprimer ce résident ?','Action irré
 // ============================================================
 function renderTemporaires(){
   const search=($('tempo-search')?.value||'').toLowerCase();
-  let temps=(S.temporaires||[]).filter(t=>!t.archived).filter(t=>!search||t.nom.toLowerCase().includes(search)).sort((a,b)=>new Date(b.dateArrivee)-new Date(a.dateArrivee));
+  let temps=(S.temporaires||[]).filter(t=>!search||t.nom.toLowerCase().includes(search)).sort((a,b)=>a.nom.localeCompare(b.nom));
   $('tempo-count').textContent=temps.length;
-  
-  let h=`<table><thead><tr><th>Nom</th><th>Arrivée</th><th>Départ</th><th>Lieu</th><th>Régime</th><th>Statut</th><th style="text-align:right">Actions</th></tr></thead><tbody>`;
-  if(!temps.length)h+=`<tr><td colspan="7" class="empty-state">Aucun séjour</td></tr>`;
+
+  const wkKey=wk();
+  const activeIds=S.tempoActivations?.[wkKey]||[];
+
+  let h=`<div class="info-box" style="margin-bottom:16px">💡 Activez un profil pour la semaine en cours pour qu'il apparaisse dans Commande/Absences — il y restera tant que vous ne le désactivez pas pour cette semaine.</div>`;
+  h+=`<table><thead><tr><th>Nom</th><th>Lieu</th><th>Régime</th><th>Cette semaine (${DAYS_S[0]}…)</th><th style="text-align:right">Actions</th></tr></thead><tbody>`;
+  if(!temps.length)h+=`<tr><td colspan="5" class="empty-state">Aucun profil Accueil Temporaire</td></tr>`;
   temps.forEach(t=>{
-    const now=new Date(),d=new Date(t.dateArrivee),f=new Date(t.dateDepart);
-    const active=now>=d&&now<=f,future=d>now;
     const lm=getLieu(t.lieuMidi);
+    const isActive=activeIds.includes(t.id);
     h+=`<tr style="border-left:3px solid var(--teal)"><td style="font-weight:600">${t.nom} <span class="tempo-badge">AT</span></td>`;
-    h+=`<td>${fmtDate(t.dateArrivee)}</td><td>${fmtDate(t.dateDepart)}</td>`;
     h+=`<td>${lm?.nom||'—'}</td><td>${t.regime||'—'}${t.special?' +'+t.special:''}</td>`;
-    h+=`<td>${active?'<span class="badge" style="background:var(--green-bg);color:var(--green)">Actif</span>':future?'<span class="badge" style="background:var(--blue-bg);color:var(--blue)">Futur</span>':'<span class="badge" style="background:var(--bg);color:var(--txt3)">Terminé</span>'}</td>`;
-    h+=`<td style="text-align:right"><button class="action-btn" onclick="openTempoModal('${t.id}')">✏️</button><button class="action-btn" onclick="deleteTempo('${t.id}')">🗑️</button></td></tr>`;
+    h+=`<td>${isActive?'<span class="badge" style="background:var(--green-bg);color:var(--green)">✅ Actif cette semaine</span>':'<span class="badge" style="background:var(--bg);color:var(--txt3)">Non activé</span>'}</td>`;
+    h+=`<td style="text-align:right">`;
+    h+=`<button class="btn btn-sm ${isActive?'btn-outline':'btn-primary'}" onclick="toggleTempoActivation('${t.id}')">${isActive?'Désactiver':'Activer cette semaine'}</button> `;
+    h+=`<button class="action-btn" onclick="openTempoModal('${t.id}')">✏️</button><button class="action-btn" onclick="deleteTempo('${t.id}')">🗑️</button></td></tr>`;
   });
   h+=`</tbody></table>`;$('tempo-table').innerHTML=h;
 }
@@ -2831,49 +2888,33 @@ function openTempoModal(id){
   $('t-lm').innerHTML=opts;$('t-ls').innerHTML=opts;
   $('t-reg').innerHTML=S.textures.map(t=>`<option value="${t.nom}">${t.nom}</option>`).join('');
   $('t-spe').innerHTML=`<option value="">Aucun</option>`+S.regimesSpeciaux.map(r=>`<option value="${r.nom}">${r.nom}</option>`).join('');
-  let hg='';
-  DAYS.forEach((d,i)=>{
-    hg+=`<div style="font-weight:600;font-size:13px">${d}</div>`;
-    hg+=`<label class="checkbox-label"><input type="checkbox" id="hab-${i}-m" checked> Midi</label>`;
-    hg+=`<label class="checkbox-label"><input type="checkbox" id="hab-${i}-s" checked> Soir</label>`;
-  });
-  $('t-hab').innerHTML=hg;
 
   if(id){
     const t=S.temporaires.find(x=>x.id===id);if(!t)return;
-    $('mtt').textContent='Modifier séjour';$('t-id').value=id;$('t-nom').value=t.nom;
-    $('t-arr').value=t.dateArrivee;$('t-dep').value=t.dateDepart;$('t-lm').value=t.lieuMidi||'';$('t-ls').value=t.lieuSoir||'';
+    $('mtt').textContent='Modifier profil AT';$('t-id').value=id;$('t-nom').value=t.nom;
+    $('t-lm').value=t.lieuMidi||'';$('t-ls').value=t.lieuSoir||'';
     $('t-reg').value=t.regime;$('t-spe').value=t.special||'';
     $('t-por').value=t.portions||1;$('t-ada').value=t.adapt||'';
-    if(t.habitudes){for(let i=0;i<7;i++){const m=$(`hab-${i}-m`),s=$(`hab-${i}-s`);if(m)m.checked=t.habitudes[i*2]!==false;if(s)s.checked=t.habitudes[i*2+1]!==false}}
-    // Mode édition : pas de sélecteur résident existant
+    // Mode édition : pas de sélecteur profil existant
     const pick=$('t-pick-resident');if(pick)pick.style.display='none';
   }else{
-    $('mtt').textContent='Nouveau séjour';$('t-id').value='';$('t-nom').value='';$('t-arr').value='';$('t-dep').value='';
+    $('mtt').textContent='Nouveau profil Accueil Temporaire';$('t-id').value='';$('t-nom').value='';
     $('t-lm').value='';$('t-ls').value='';
     $('t-reg').value=S.textures[0]?.nom||'Normal';$('t-spe').value='';$('t-por').value=1;$('t-ada').value='';
     // Mode création : afficher le sélecteur et peupler avec les profils AT déjà existants
-    // (un même résident en AT peut revenir plusieurs fois — on propose son dernier profil par nom unique)
     const pick=$('t-pick-resident');if(pick)pick.style.display='';
     const picker=$('t-pick-existing');
     if(picker){
       picker.value='';
-      // Dédoublonner par nom : garder le séjour le plus récent de chaque personne
-      const byName={};
-      (S.temporaires||[]).forEach(t=>{
-        if(!byName[t.nom]||new Date(t.dateArrivee)>new Date(byName[t.nom].dateArrivee)){
-          byName[t.nom]=t;
-        }
-      });
-      const profils=Object.values(byName).sort((a,b)=>a.nom.localeCompare(b.nom));
-      picker.innerHTML='<option value="">— Saisir un nouveau résident —</option>'+
+      const profils=(S.temporaires||[]).slice().sort((a,b)=>a.nom.localeCompare(b.nom));
+      picker.innerHTML='<option value="">— Saisir un nouveau profil —</option>'+
         profils.map(t=>`<option value="${t.id}">${t.nom}</option>`).join('');
     }
   }
   openModal('modal-tempo');
 }
 
-// Pré-remplit le formulaire avec les infos d'un profil AT déjà existant (séjour précédent)
+// Pré-remplit le formulaire avec les infos d'un profil AT déjà existant
 function pickExistingResident(tempoId){
   if(!tempoId)return;
   const t=S.temporaires.find(x=>x.id===tempoId);
@@ -2890,14 +2931,13 @@ function pickExistingResident(tempoId){
 
 function saveTemporaire(){
   if(!getPerms().canAbsences&&!getPerms().canEdit){toast('Accès non autorisé','error');return}
-  const nom=$('t-nom').value.trim(),arr=$('t-arr').value,dep=$('t-dep').value;
-  if(!nom){toast('Le nom est requis','error');return}if(!arr||!dep){toast('Les dates sont requises','error');return}
-  const hab=[];for(let i=0;i<7;i++){hab.push($(`hab-${i}-m`)?.checked!==false);hab.push($(`hab-${i}-s`)?.checked!==false)}
-  const data={nom,dateArrivee:arr,dateDepart:dep,lieuMidi:$('t-lm').value,lieuSoir:$('t-ls').value,regime:$('t-reg').value,special:$('t-spe').value,portions:parseFloat($('t-por').value)||1,adapt:$('t-ada').value.trim(),habitudes:hab};
+  const nom=$('t-nom').value.trim();
+  if(!nom){toast('Le nom est requis','error');return}
+  const data={nom,lieuMidi:$('t-lm').value,lieuSoir:$('t-ls').value,regime:$('t-reg').value,special:$('t-spe').value,portions:parseFloat($('t-por').value)||1,adapt:$('t-ada').value.trim()};
   const eid=$('t-id').value;
   if(eid){const i=S.temporaires.findIndex(t=>t.id===eid);if(i>=0)S.temporaires[i]={...S.temporaires[i],...data}}
   else S.temporaires.push({id:uid(),...data});
-  const isEditT=!!eid;auditLog(isEditT?'TEMPORAIRE_MODIFIE':'TEMPORAIRE_AJOUTE',{nom});save('temporaires');closeModal('modal-tempo');renderTemporaires();toast('Séjour enregistré','success');
+  const isEditT=!!eid;auditLog(isEditT?'TEMPORAIRE_MODIFIE':'TEMPORAIRE_AJOUTE',{nom});save('temporaires');closeModal('modal-tempo');renderTemporaires();toast('Profil enregistré','success');
 }
 
 function deleteTempo(id){showConfirm('Supprimer ce séjour ?','',async()=>{
@@ -3196,8 +3236,8 @@ function renderMEPLieu(lieu){
   const addPN=(p,di,meal)=>{const k=`${p.regime}|${p.special||''}`;if(!svc.pn.has(k))svc.pn.set(k,{regime:p.regime,special:p.special||'',midi:Array(7).fill(0),soir:Array(7).fill(0)});svc.pn.get(k)[meal][di]++};
   
   for(let di=0;di<7;di++){
-    S.residents.filter(p=>isResidentActive(p)&&getEffectiveLieu(p.id,di,'midi',S.affectations[p.id]?.midi)===lieu.id).forEach(p=>{if(!isAbsentSlot(p.id,di,'midi')){const pk=`${p.id}_${di}_midi`;if(S.piquenique[w]?.[pk])addPN(p,di,'midi');else addP(p,di,'midi')}});
-    S.residents.filter(p=>isResidentActive(p)&&getEffectiveLieu(p.id,di,'soir',S.affectations[p.id]?.soir)===lieu.id).forEach(p=>{if(!isAbsentSlot(p.id,di,'soir')){const pk=`${p.id}_${di}_soir`;if(S.piquenique[w]?.[pk])addPN(p,di,'soir');else addP(p,di,'soir')}});
+    S.residents.filter(p=>isResidentActive(p,getDateForDay(S.currentWeek,di))&&getEffectiveLieu(p.id,di,'midi',S.affectations[p.id]?.midi)===lieu.id).forEach(p=>{if(!isAbsentSlot(p.id,di,'midi')){const pk=`${p.id}_${di}_midi`;if(S.piquenique[w]?.[pk])addPN(p,di,'midi');else addP(p,di,'midi')}});
+    S.residents.filter(p=>isResidentActive(p,getDateForDay(S.currentWeek,di))&&getEffectiveLieu(p.id,di,'soir',S.affectations[p.id]?.soir)===lieu.id).forEach(p=>{if(!isAbsentSlot(p.id,di,'soir')){const pk=`${p.id}_${di}_soir`;if(S.piquenique[w]?.[pk])addPN(p,di,'soir');else addP(p,di,'soir')}});
     (S.temporaires||[]).filter(t=>isTempoActive(t,S.currentWeek,S.currentYear)).forEach(t=>{
       if(t.lieuMidi===lieu.id&&(!t.habitudes||t.habitudes[di*2]!==false)){const pk=`${t.id}_${di}_midi`;if(S.piquenique[w]?.[pk])addPN(t,di,'midi');else addP(t,di,'midi')}
       if(t.lieuSoir===lieu.id&&(!t.habitudes||t.habitudes[di*2+1]!==false)){const pk=`${t.id}_${di}_soir`;if(S.piquenique[w]?.[pk])addPN(t,di,'soir');else addP(t,di,'soir')}
@@ -3330,8 +3370,8 @@ function printMEP(){
       const addP=(p,di,meal)=>{if(p.adapt){let a=svc.adaptations.find(x=>x.nom===p.nom);if(!a){a={nom:p.nom,adapt:p.adapt,regime:p.regime,midi:Array(7).fill(0),soir:Array(7).fill(0)};svc.adaptations.push(a)}a[meal][di]++}else{const k=`${p.regime}|${p.special||''}`;if(!svc.regimes.has(k))svc.regimes.set(k,{regime:p.regime,special:p.special||'',midi:Array(7).fill(0),soir:Array(7).fill(0)});svc.regimes.get(k)[meal][di]++}};
       const addPN=(p,di,meal)=>{const k=`${p.regime}|${p.special||''}`;if(!svc.pn.has(k))svc.pn.set(k,{regime:p.regime,special:p.special||'',midi:Array(7).fill(0),soir:Array(7).fill(0)});svc.pn.get(k)[meal][di]++};
       for(let di=0;di<7;di++){
-        S.residents.filter(p=>isResidentActive(p)&&getEffectiveLieu(p.id,di,'midi',S.affectations[p.id]?.midi)===lieu.id).forEach(p=>{if(!isAbsentSlot(p.id,di,'midi')){const pk=`${p.id}_${di}_midi`;if(S.piquenique[w]?.[pk])addPN(p,di,'midi');else addP(p,di,'midi')}});
-        S.residents.filter(p=>isResidentActive(p)&&getEffectiveLieu(p.id,di,'soir',S.affectations[p.id]?.soir)===lieu.id).forEach(p=>{if(!isAbsentSlot(p.id,di,'soir')){const pk=`${p.id}_${di}_soir`;if(S.piquenique[w]?.[pk])addPN(p,di,'soir');else addP(p,di,'soir')}});
+        S.residents.filter(p=>isResidentActive(p,getDateForDay(S.currentWeek,di))&&getEffectiveLieu(p.id,di,'midi',S.affectations[p.id]?.midi)===lieu.id).forEach(p=>{if(!isAbsentSlot(p.id,di,'midi')){const pk=`${p.id}_${di}_midi`;if(S.piquenique[w]?.[pk])addPN(p,di,'midi');else addP(p,di,'midi')}});
+        S.residents.filter(p=>isResidentActive(p,getDateForDay(S.currentWeek,di))&&getEffectiveLieu(p.id,di,'soir',S.affectations[p.id]?.soir)===lieu.id).forEach(p=>{if(!isAbsentSlot(p.id,di,'soir')){const pk=`${p.id}_${di}_soir`;if(S.piquenique[w]?.[pk])addPN(p,di,'soir');else addP(p,di,'soir')}});
         (S.temporaires||[]).filter(t=>isTempoActive(t,week,year)).forEach(t=>{
           if(t.lieuMidi===lieu.id&&(!t.habitudes||t.habitudes[di*2]!==false)){const pk=`${t.id}_${di}_midi`;if(S.piquenique[w]?.[pk])addPN(t,di,'midi');else addP(t,di,'midi')}
           if(t.lieuSoir===lieu.id&&(!t.habitudes||t.habitudes[di*2+1]!==false)){const pk=`${t.id}_${di}_soir`;if(S.piquenique[w]?.[pk])addPN(t,di,'soir');else addP(t,di,'soir')}
@@ -3608,7 +3648,7 @@ function renderFiche(){
     const cv=sel.value;let opts='<option value="">— Choisir —</option><optgroup label="Résidents">';
     S.residents.forEach(r=>opts+=`<option value="r-${r.id}" ${`r-${r.id}`===cv?'selected':''}>${r.nom}</option>`);
     opts+='</optgroup>';
-    const at=(S.temporaires||[]).filter(t=>!t.archived);
+    const at=(S.temporaires||[]);
     if(at.length){opts+='<optgroup label="Accueil Temporaire">';at.forEach(t=>opts+=`<option value="t-${t.id}" ${`t-${t.id}`===cv?'selected':''}>${t.nom}</option>`);opts+='</optgroup>'}
     sel.innerHTML=opts;
   }
@@ -3648,13 +3688,12 @@ function renderFiche(){
       let isPlannedAbs=false;
       absP.forEach(a=>{const s=new Date(a.debut),e=new Date(a.fin);s.setHours(0,0,0,0);e.setHours(23,59,59,999);if(cd>=s&&cd<=e){isPlannedAbs=true}});
 
-      // Résident/AT pas encore arrivé ou déjà parti : grisé
+      // Résident pas encore arrivé/déjà parti, OU profil AT non activé cette semaine-là : grisé
       let outOfRange=false;
       if(!person.isTempo){
         if(!isResidentActive(person,cd))outOfRange=true;
       } else {
-        const sd2=new Date(person.dateArrivee),ed2=new Date(person.dateDepart);sd2.setHours(0,0,0,0);ed2.setHours(23,59,59,999);
-        if(!(cd>=sd2&&cd<=ed2))outOfRange=true;
+        if(!isTempoActive(person,isoWeek,isoYear))outOfRange=true;
       }
 
       let cellHTML;
@@ -3727,8 +3766,7 @@ function printFiche(){
       if(!isTempo){
         if(!isResidentActive(person,cd))outOfRange=true;
       } else {
-        const sd2=new Date(person.dateArrivee),ed2=new Date(person.dateDepart);sd2.setHours(0,0,0,0);ed2.setHours(23,59,59,999);
-        if(!(cd>=sd2&&cd<=ed2))outOfRange=true;
+        if(!isTempoActive(person,isoWeek,isoYear))outOfRange=true;
       }
 
       if(outOfRange){
@@ -3815,7 +3853,10 @@ function exportExcel(){
   if(!getPerms().canAdmin){toast('Accès non autorisé','error');return}
   const w=wk(),week=S.currentWeek,year=S.currentYear,wb=XLSX.utils.book_new();
   const data=[['ID','Nom','Type','Régime','Spécial','Lieu Midi','Lieu Soir','Lun M','Lun S','Mar M','Mar S','Mer M','Mer S','Jeu M','Jeu S','Ven M','Ven S','Sam M','Sam S','Dim M','Dim S']];
-  S.residents.filter(r=>isResidentActive(r)).forEach(r=>{
+  S.residents.filter(r=>{
+    for(let di=0;di<7;di++){if(isResidentActive(r,getDateForDay(week,di)))return true}
+    return false;
+  }).forEach(r=>{
     const row=[r.id,r.nom,'Résident',r.regime||'',r.special||'',lm?.nom||'',ls?.nom||''];
     for(let d=0;d<7;d++){const ms=d*2,ss=d*2+1;row.push(abs[ms]?'ABS':pn[`${r.id}_${d}_midi`]?'PN':'OK');row.push(abs[ss]?'ABS':pn[`${r.id}_${d}_soir`]?'PN':'OK')}
     data.push(row);
@@ -4326,6 +4367,7 @@ async function renderAdmAudit(){
       COMPTE_CREE:'✅ Compte créé',ROLE_MODIFIE:'⚙️ Rôle modifié',
       COMPTE_DESACTIVE:'🔒 Compte désactivé',COMPTE_ACTIVE:'🔓 Compte activé',
       TEMPORAIRE_AJOUTE:'🏠 AT ajouté',TEMPORAIRE_MODIFIE:'✏️ AT modifié',
+      AT_ACTIVE_SEMAINE:'✅ AT activé (semaine)',AT_DESACTIVE_SEMAINE:'⛔ AT désactivé (semaine)',
       ABSENCE_PLANIFIEE_AJOUTEE:'📅 Absence planifiée',
       GROUPE_MODIFIE:'👨‍🍳 Groupe modifié',LIEU_MODIFIE:'📍 Lieu modifié',
       JOURNAL_PURGE:'🧹 Journal nettoyé',COMPTE_SUPPRIME_DEFINITIVEMENT:'🗑️ Compte supprimé définitivement',
@@ -4473,11 +4515,9 @@ function countRepasByDay(dateObj, lieuId, service, textures){
 }
 
 function isTempoActiveForDate(t,date){
-  if(t.archived)return false;
-  const d=new Date(date);d.setHours(12,0,0,0);
-  const db=new Date(t.dateArrivee);db.setHours(0,0,0,0);
-  const fn=new Date(t.dateDepart);fn.setHours(23,59,59,999);
-  return d>=db&&d<=fn;
+  const d=new Date(date);
+  const {week,year}=getISOWeek(d);
+  return isTempoActive(t,week,year);
 }
 
 function buildReportingData(month, year){
