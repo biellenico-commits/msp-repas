@@ -581,9 +581,10 @@ tr:hover td{background:rgba(0,0,0,.015)}
 <!-- ===== FICHE RÉSIDENT ===== -->
 <div class="view" id="v-fiche">
   <div class="page-header"><div><h1>Planning résident</h1><p class="subtitle">Planning annuel</p></div></div>
-  <div style="display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap">
+  <div style="display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;align-items:center">
     <select id="fiche-sel" onchange="renderFiche()" style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--txt);font-size:13px;font-weight:600;outline:none;min-width:240px;font-family:inherit"><option value="">— Choisir —</option></select>
     <select id="fiche-year" onchange="renderFiche()" style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--txt);font-size:13px;font-weight:600;outline:none;font-family:inherit"></select>
+    <button class="btn btn-outline btn-sm" onclick="printFiche()">🖨️ Imprimer</button>
   </div>
   <div id="fiche-content"><div class="empty-state">Sélectionnez un résident</div></div>
 </div>
@@ -3611,22 +3612,176 @@ function renderFiche(){
   if(type==='t')person.isTempo=true;
   
   const absP=(S.plannedAbsences||[]).filter(a=>a.residentId===id);
-  let h=`<div style="margin-bottom:20px;padding:16px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg)"><h2 style="font-size:18px;font-weight:700">${person.nom} ${person.isTempo?'<span class="tempo-badge">AT</span>':''}</h2><div style="display:flex;gap:8px;margin-top:8px"><span class="badge" style="background:var(--blue-bg);color:var(--blue)">${person.regime}</span>${person.special?`<span class="badge" style="background:var(--amber-bg);color:var(--amber)">${person.special}</span>`:''}</div></div><div class="cal-grid-wrap">`;
+  let h=`<div style="margin-bottom:20px;padding:16px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg)"><h2 style="font-size:18px;font-weight:700">${person.nom} ${person.isTempo?'<span class="tempo-badge">AT</span>':''}</h2><div style="display:flex;gap:8px;margin-top:8px"><span class="badge" style="background:var(--blue-bg);color:var(--blue)">${person.regime}</span>${person.special?`<span class="badge" style="background:var(--amber-bg);color:var(--amber)">${person.special}</span>`:''}</div></div>`;
+  h+=`<div style="display:flex;flex-wrap:wrap;gap:14px;margin-bottom:18px;padding:12px 16px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);font-size:12px">
+    <span style="font-weight:600;color:var(--txt2)">Légende (gauche = midi, droite = soir) :</span>
+    <span style="display:flex;align-items:center;gap:5px"><span style="width:14px;height:14px;border-radius:3px;background:var(--green-border)"></span>Présent</span>
+    <span style="display:flex;align-items:center;gap:5px"><span style="width:14px;height:14px;border-radius:3px;background:var(--red-border)"></span>Absent</span>
+    <span style="display:flex;align-items:center;gap:5px"><span style="width:14px;height:14px;border-radius:3px;background:var(--amber-border)"></span>Pique-nique</span>
+    <span style="display:flex;align-items:center;gap:5px"><span style="width:14px;height:14px;border-radius:3px;background:var(--teal-border)"></span>Délocalisé</span>
+    <span style="display:flex;align-items:center;gap:5px"><span style="width:14px;height:14px;border-radius:3px;background:var(--bg);border:1px solid var(--border);opacity:.6"></span>Hors période / Pas encore arrivé</span>
+  </div>`;
+  h+=`<div class="cal-grid-wrap">`;
   
   for(let m=0;m<12;m++){
     h+=`<div class="month-card"><div class="month-title">${MONTHS[m]} ${year}</div><div class="cal-g">${DAYS_S.map(d=>`<div class="cal-dh">${d}</div>`).join('')}`;
     const fd=new Date(year,m,1),ld=new Date(year,m+1,0),sd=fd.getDay()===0?6:fd.getDay()-1;
     for(let i=0;i<sd;i++)h+=`<div class="cal-d"></div>`;
     for(let d=1;d<=ld.getDate();d++){
-      const cd=new Date(year,m,d);let style='background:var(--bg);color:var(--txt)',isAbs=false;
-      absP.forEach(a=>{const s=new Date(a.debut),e=new Date(a.fin);s.setHours(0,0,0,0);e.setHours(23,59,59,999);if(cd>=s&&cd<=e){isAbs=true}});
-      if(isAbs)style='background:var(--red);color:#fff;font-weight:700';
-      else if(person.isTempo){const sd2=new Date(person.dateArrivee),ed2=new Date(person.dateDepart);sd2.setHours(0,0,0,0);ed2.setHours(23,59,59,999);if(cd>=sd2&&cd<=ed2)style='background:var(--teal);color:#fff';else style='background:var(--bg);color:var(--txt3);opacity:.3'}
-      h+=`<div class="cal-d" style="${style}">${d}</div>`;
+      const cd=new Date(year,m,d);
+      const dayIdx=cd.getDay()===0?6:cd.getDay()-1; // lundi=0
+      const {week:isoWeek,year:isoYear}=getISOWeek(cd);
+      const wkKey=`${isoYear}_${isoWeek}`;
+
+      // Absence planifiée (congés/hospit.) : prioritaire, couvre toute la journée
+      let isPlannedAbs=false;
+      absP.forEach(a=>{const s=new Date(a.debut),e=new Date(a.fin);s.setHours(0,0,0,0);e.setHours(23,59,59,999);if(cd>=s&&cd<=e){isPlannedAbs=true}});
+
+      // Résident/AT pas encore arrivé ou déjà parti : grisé
+      let outOfRange=false;
+      if(!person.isTempo){
+        if(!isResidentActive(person,cd))outOfRange=true;
+      } else {
+        const sd2=new Date(person.dateArrivee),ed2=new Date(person.dateDepart);sd2.setHours(0,0,0,0);ed2.setHours(23,59,59,999);
+        if(!(cd>=sd2&&cd<=ed2))outOfRange=true;
+      }
+
+      let cellHTML;
+      if(outOfRange){
+        cellHTML=`<div class="cal-d" style="background:var(--bg);color:var(--txt3);opacity:.3">${d}</div>`;
+      } else if(isPlannedAbs){
+        cellHTML=`<div class="cal-d" style="background:var(--red-bg);color:var(--red);font-weight:700;border:1px solid var(--red-border)" title="Absence planifiée">${d}</div>`;
+      } else {
+        // Statut réel midi/soir pour ce jour (OK / ABS / PN / Délocalisé)
+        const statusColor=(svc)=>{
+          const slot=dayIdx*2+(svc==='soir'?1:0);
+          const isAbs=S.absences[wkKey]?.[person.id]?.[slot]||false;
+          const pk=`${person.id}_${dayIdx}_${svc}`;
+          const isPn=S.piquenique[wkKey]?.[pk]||false;
+          const isDel=S.delocalisations?.[wkKey]?.[pk];
+          if(isAbs)return 'var(--red-border)';
+          if(isDel)return 'var(--teal-border)';
+          if(isPn)return 'var(--amber-border)';
+          return 'var(--green-border)';
+        };
+        const cMidi=statusColor('midi'), cSoir=statusColor('soir');
+        cellHTML=`<div class="cal-d" style="position:relative;color:var(--txt);font-weight:600;overflow:hidden;border:1px solid var(--border)" title="Midi/Soir">
+          <div style="position:absolute;inset:0;background:${cMidi};clip-path:polygon(0 0,100% 0,0 100%)"></div>
+          <div style="position:absolute;inset:0;background:${cSoir};clip-path:polygon(100% 0,100% 100%,0 100%)"></div>
+          <span style="position:relative;z-index:1">${d}</span>
+        </div>`;
+      }
+      h+=cellHTML;
     }
     h+=`</div></div>`;
   }
   h+=`</div>`;c.innerHTML=h;
+}
+
+// Imprime le planning annuel du résident sélectionné, avec la même disposition
+// et les mêmes couleurs que l'écran, sur une page A4.
+function printFiche(){
+  const sel=$('fiche-sel'),yearSel=$('fiche-year');
+  const sv=sel?.value,year=+(yearSel?.value||S.currentYear);
+  if(!sv){toast('Sélectionnez un résident','error');return}
+  const [type,id]=sv.split('-');
+  let person=type==='r'?S.residents.find(x=>x.id===id):S.temporaires.find(x=>x.id===id);
+  if(!person)return;
+  const isTempo=type==='t';
+
+  const absP=(S.plannedAbsences||[]).filter(a=>a.residentId===id);
+
+  // Couleurs résolues en hexadécimal (indépendant du thème CSS de la fenêtre d'impression)
+  const COL={
+    txt:'#1a2332',txt3:'#94a0b2',border:'#dde2e9',bg:'#f4f6f9',
+    green:'#a9e8c0',red:'#f0bcbc',redTxt:'#b91c1c',redBg:'#fdf0f0',
+    amber:'#f0d9a8',teal:'#a8dde4'
+  };
+
+  let monthsHTML='';
+  for(let m=0;m<12;m++){
+    let days=`<div class="p-cal-dh">L</div><div class="p-cal-dh">M</div><div class="p-cal-dh">M</div><div class="p-cal-dh">J</div><div class="p-cal-dh">V</div><div class="p-cal-dh">S</div><div class="p-cal-dh">D</div>`;
+    const fd=new Date(year,m,1),ld=new Date(year,m+1,0),sd=fd.getDay()===0?6:fd.getDay()-1;
+    for(let i=0;i<sd;i++)days+=`<div class="p-cal-d"></div>`;
+    for(let d=1;d<=ld.getDate();d++){
+      const cd=new Date(year,m,d);
+      const dayIdx=cd.getDay()===0?6:cd.getDay()-1;
+      const {week:isoWeek,year:isoYear}=getISOWeek(cd);
+      const wkKey=`${isoYear}_${isoWeek}`;
+
+      let isPlannedAbs=false;
+      absP.forEach(a=>{const s=new Date(a.debut),e=new Date(a.fin);s.setHours(0,0,0,0);e.setHours(23,59,59,999);if(cd>=s&&cd<=e)isPlannedAbs=true});
+
+      let outOfRange=false;
+      if(!isTempo){
+        if(!isResidentActive(person,cd))outOfRange=true;
+      } else {
+        const sd2=new Date(person.dateArrivee),ed2=new Date(person.dateDepart);sd2.setHours(0,0,0,0);ed2.setHours(23,59,59,999);
+        if(!(cd>=sd2&&cd<=ed2))outOfRange=true;
+      }
+
+      if(outOfRange){
+        days+=`<div class="p-cal-d" style="background:#fff;color:${COL.txt3};border:1px solid ${COL.border}">${d}</div>`;
+      } else if(isPlannedAbs){
+        days+=`<div class="p-cal-d" style="background:${COL.redBg};color:${COL.redTxt};font-weight:700;border:1px solid ${COL.red}">${d}</div>`;
+      } else {
+        const statusColor=(svc)=>{
+          const slot=dayIdx*2+(svc==='soir'?1:0);
+          const isAbs=S.absences[wkKey]?.[person.id]?.[slot]||false;
+          const pk=`${person.id}_${dayIdx}_${svc}`;
+          const isPn=S.piquenique[wkKey]?.[pk]||false;
+          const isDel=S.delocalisations?.[wkKey]?.[pk];
+          if(isAbs)return COL.red;
+          if(isDel)return COL.teal;
+          if(isPn)return COL.amber;
+          return COL.green;
+        };
+        const cMidi=statusColor('midi'), cSoir=statusColor('soir');
+        days+=`<div class="p-cal-d" style="position:relative;color:${COL.txt};font-weight:700;overflow:hidden;border:1px solid ${COL.border}">
+          <div style="position:absolute;inset:0;background:${cMidi};clip-path:polygon(0 0,100% 0,0 100%)"></div>
+          <div style="position:absolute;inset:0;background:${cSoir};clip-path:polygon(100% 0,100% 100%,0 100%)"></div>
+          <span style="position:relative;z-index:1">${d}</span>
+        </div>`;
+      }
+    }
+    monthsHTML+=`<div class="p-month"><div class="p-month-title">${MONTHS[m]} ${year}</div><div class="p-cal-g">${days}</div></div>`;
+  }
+
+  const pw=window.open('','_blank');
+  pw.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Planning ${person.nom}</title>
+  <style>
+    @page{size:A4 portrait;margin:10mm}
+    *{margin:0;padding:0;box-sizing:border-box;font-family:Arial,sans-serif}
+    body{color:${COL.txt}}
+    .p-head{margin-bottom:10px;padding-bottom:8px;border-bottom:2px solid ${COL.txt}}
+    .p-head h1{font-size:18px;margin-bottom:2px}
+    .p-head .sub{font-size:12px;color:#555}
+    .p-legend{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px;font-size:9px;align-items:center}
+    .p-legend .sw{display:inline-block;width:10px;height:10px;border-radius:2px;vertical-align:middle;margin-right:3px;border:1px solid #ccc}
+    .p-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+    .p-month{border:1px solid ${COL.border};border-radius:5px;padding:7px}
+    .p-month-title{font-size:12px;font-weight:700;text-align:center;margin-bottom:4px;text-transform:capitalize}
+    .p-cal-g{display:grid;grid-template-columns:repeat(7,1fr);gap:1px}
+    .p-cal-dh{font-size:7px;text-align:center;color:#888;font-weight:600;padding:1px 0}
+    .p-cal-d{aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:9px;border-radius:2px}
+    @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+  </style></head><body>
+    <div class="p-head">
+      <h1>${person.nom}${isTempo?' (Accueil Temporaire)':''}</h1>
+      <div class="sub">${person.regime}${person.special?' + '+person.special:''} — Planning annuel ${year}</div>
+    </div>
+    <div class="p-legend">
+      <strong>Légende (gauche=midi, droite=soir) :</strong>
+      <span><span class="sw" style="background:${COL.green}"></span>Présent</span>
+      <span><span class="sw" style="background:${COL.red}"></span>Absent</span>
+      <span><span class="sw" style="background:${COL.amber}"></span>Pique-nique</span>
+      <span><span class="sw" style="background:${COL.teal}"></span>Délocalisé</span>
+      <span><span class="sw" style="background:#fff"></span>Hors période</span>
+    </div>
+    <div class="p-grid">${monthsHTML}</div>
+  </body></html>`);
+  pw.document.close();
+  setTimeout(()=>{pw.print()},400);
 }
 
 // ============================================================
