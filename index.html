@@ -2393,10 +2393,14 @@ function renderTotaux(){
         });
       });
       
-      let hm=false,hs=false;
-      Object.values(jM.regimes).forEach(v=>{if(v>1)hm=true});
-      Object.values(jS.regimes).forEach(v=>{if(v>1)hs=true});
-      jM.tem=hm?1:0;jS.tem=hs?1:0;
+      // Plat témoin HACCP : 1 dès qu'au moins un repas (normal ou pique-nique) est
+      // servi ce jour/service dans cette section, peu importe le nombre de convives/textures.
+      let totM=0,totS=0;
+      Object.values(jM.regimes).forEach(v=>totM+=v);
+      Object.values(jM.pnRegimes).forEach(v=>totM+=v);
+      Object.values(jS.regimes).forEach(v=>totS+=v);
+      Object.values(jS.pnRegimes).forEach(v=>totS+=v);
+      jM.tem=totM>0?1:0;jS.tem=totS>0?1:0;
       data.push(jM,jS);
     }
     
@@ -2409,7 +2413,7 @@ function renderTotaux(){
     
     data.forEach((j,idx)=>{
       const di=Math.floor(idx/2),ic=j.service==='Midi'?'☀':'🌙';
-      let tot=0;regs.forEach(r=>tot+=(j.regimes[r]||0));pnRegs.forEach(r=>tot+=(j.pnRegimes[r]||0));
+      let tot=0;regs.forEach(r=>tot+=(j.regimes[r]||0));pnRegs.forEach(r=>tot+=(j.pnRegimes[r]||0));tot+=j.tem;
       html+=`<tr><td style="color:${DAY_C[di]};font-weight:600">${ic} ${j.jour} ${j.service}</td>`;
       regs.forEach(r=>{const v=j.regimes[r]||0;html+=`<td style="text-align:center;font-weight:600">${v||'—'}</td>`});
       pnRegs.forEach(r=>{const v=j.pnRegimes[r]||0;html+=`<td style="text-align:center;font-weight:600;color:var(--amber);background:var(--amber-bg)">${v||'—'}</td>`});
@@ -2474,7 +2478,18 @@ function confirmPrint(){
     const regs=[...regMap.entries()].filter(([_,d])=>d.midi.reduce((a,b)=>a+b,0)+d.soir.reduce((a,b)=>a+b,0)>0).sort((a,b)=>a[0].localeCompare(b[0]));
     const pns=[...pnMap.entries()].filter(([_,d])=>d.midi.reduce((a,b)=>a+b,0)+d.soir.reduce((a,b)=>a+b,0)>0).sort((a,b)=>a[0].localeCompare(b[0]));
     if(!regs.length&&!pns.length)return;
-    
+
+    // Plat témoin HACCP : 1 par jour/service dès qu'au moins un repas est servi dans cette section
+    // (facturé comme un repas)
+    const temMidi=Array(7).fill(0),temSoir=Array(7).fill(0);
+    for(let di=0;di<7;di++){
+      let totM=0,totS=0;
+      regs.forEach(([_,d])=>{totM+=d.midi[di];totS+=d.soir[di]});
+      pns.forEach(([_,d])=>{totM+=d.midi[di];totS+=d.soir[di]});
+      temMidi[di]=totM>0?1:0;
+      temSoir[di]=totS>0?1:0;
+    }
+
     pw.document.write(`<h2>${siteName.toUpperCase()}</h2><table><thead><tr><th>RÉGIME</th>`);
     DAYS_S.forEach((d)=>pw.document.write(`<th colspan="2">${d}<div style="font-size:7px;display:flex;justify-content:space-around"><span>M</span><span>S</span></div></th>`));
     pw.document.write(`<th class="tot">TOT</th></tr></thead><tbody>`);
@@ -2491,6 +2506,10 @@ function confirmPrint(){
       for(let i=0;i<7;i++)pw.document.write(`<td class="pn-cell">${d.midi[i]||'—'}</td><td class="pn-cell">${d.soir[i]||'—'}</td>`);
       pw.document.write(`<td class="tot">${tot}</td></tr>`);
     });
+    const totTem=temMidi.reduce((a,b)=>a+b,0)+temSoir.reduce((a,b)=>a+b,0);
+    pw.document.write(`<tr><td style="text-align:left;font-weight:600;background:#e6f7f7">🧪 PLAT TÉMOIN</td>`);
+    for(let i=0;i<7;i++)pw.document.write(`<td style="background:#e6f7f7">${temMidi[i]||'—'}</td><td style="background:#e6f7f7">${temSoir[i]||'—'}</td>`);
+    pw.document.write(`<td class="tot">${totTem}</td></tr>`);
     pw.document.write(`</tbody></table>`);
   });
   
@@ -2547,6 +2566,16 @@ function buildCommandeHTML(){
     const pns=[...pnMap.entries()].filter(([_,d])=>d.midi.reduce((a,b)=>a+b,0)+d.soir.reduce((a,b)=>a+b,0)>0).sort((a,b)=>a[0].localeCompare(b[0]));
     if(!regs.length&&!pns.length)return;
 
+    // Plat témoin HACCP : 1 par jour/service dès qu'au moins un repas est servi dans cette section
+    const temMidi=Array(7).fill(0),temSoir=Array(7).fill(0);
+    for(let di=0;di<7;di++){
+      let totM=0,totS=0;
+      regs.forEach(([_,d])=>{totM+=d.midi[di];totS+=d.soir[di]});
+      pns.forEach(([_,d])=>{totM+=d.midi[di];totS+=d.soir[di]});
+      temMidi[di]=totM>0?1:0;
+      temSoir[di]=totS>0?1:0;
+    }
+
     html+=`<h3 style="font-family:Arial,sans-serif;margin-top:20px;border-bottom:2px solid #1a56db;padding-bottom:5px">${siteName.toUpperCase()}</h3>`;
     html+=`<table border="1" cellpadding="4" cellspacing="0" style="border-collapse:collapse;font-family:Arial,sans-serif;font-size:11px;margin-bottom:16px;width:100%">`;
     html+=`<thead><tr style="background:#e0e0e0"><th>RÉGIME</th>`;
@@ -2565,6 +2594,10 @@ function buildCommandeHTML(){
       for(let i=0;i<7;i++)html+=`<td style="text-align:center">${d.midi[i]||'—'}</td><td style="text-align:center">${d.soir[i]||'—'}</td>`;
       html+=`<td style="text-align:center;font-weight:bold">${tot}</td></tr>`;
     });
+    const totTem=temMidi.reduce((a,b)=>a+b,0)+temSoir.reduce((a,b)=>a+b,0);
+    html+=`<tr style="background:#e6f7f7"><td style="font-weight:bold;text-align:left;padding:3px 6px">🧪 PLAT TÉMOIN</td>`;
+    for(let i=0;i<7;i++)html+=`<td style="text-align:center">${temMidi[i]||'—'}</td><td style="text-align:center">${temSoir[i]||'—'}</td>`;
+    html+=`<td style="text-align:center;font-weight:bold;background:#d4edda">${totTem}</td></tr>`;
     html+=`</tbody></table>`;
   });
   return html;
@@ -4525,6 +4558,10 @@ function buildReportingData(month, year){
   const lieux=S.lieux; // Tous les lieux, y compris Personnel uniquement (facturés de la même façon)
   const textures=['Normal','Mixé']; // Regroupement : tout ce qui n'est pas Mixé = Normal
 
+  // Sections distinctes pour les plats témoins (HACCP) : 1 témoin par section et par service,
+  // dès qu'au moins un repas y est servi ce jour-là (peu importe le nombre de convives/textures).
+  const sections=[...new Set(lieux.map(l=>l.section).filter(Boolean))];
+
   // Résultat : pour chaque lieu × service × texture : tableau de 31 valeurs
   const result={
     month, year, daysInMonth,
@@ -4538,6 +4575,11 @@ function buildReportingData(month, year){
         normal: Array(31).fill(0),
         mixe:   Array(31).fill(0)
       }
+    })),
+    temoins: sections.map(s=>({
+      section:s,
+      midi: Array(31).fill(0),
+      soir: Array(31).fill(0)
     }))
   };
 
@@ -4552,6 +4594,15 @@ function buildReportingData(month, year){
       lieu.soir.normal[d-1]=countRepasByDayFull(date,lieu.id,'soir','Normal');
       // Soir Mixé
       lieu.soir.mixe[d-1]=countRepasByDayFull(date,lieu.id,'soir','Mixé');
+    });
+
+    // Plats témoins : 1 par section dès qu'au moins un repas y est servi ce jour-là
+    result.temoins.forEach(t=>{
+      const lieuxSection=result.lieux.filter(l=>l.section===t.section);
+      const totalMidi=lieuxSection.reduce((a,l)=>a+l.midi.normal[d-1]+l.midi.mixe[d-1],0);
+      const totalSoir=lieuxSection.reduce((a,l)=>a+l.soir.normal[d-1]+l.soir.mixe[d-1],0);
+      t.midi[d-1]=totalMidi>0?1:0;
+      t.soir[d-1]=totalSoir>0?1:0;
     });
   }
   return result;
@@ -4698,6 +4749,23 @@ function renderReporting(){
     tableRows+=`<tr style="height:2px;background:var(--border)"><td colspan="${daysInMonth+3}"></td></tr>`;
   });
 
+  // Lignes plats témoins (HACCP) : 1 par section et par service
+  data.temoins.forEach(t=>{
+    const totMidi=t.midi.reduce((a,b)=>a+b,0);
+    const totSoir=t.soir.reduce((a,b)=>a+b,0);
+    let cellsMidi='',cellsSoir='';
+    for(let d=0;d<daysInMonth;d++){
+      const dow=new Date(year,month,d+1).getDay();
+      const isWE=dow===0||dow===6;
+      const vM=t.midi[d],vS=t.soir[d];
+      cellsMidi+=`<td style="text-align:center;font-size:11px;${isWE?'background:#fef9f9':''}${vM?';font-weight:600;color:var(--purple)':';color:var(--txt3)'}">${vM||'—'}</td>`;
+      cellsSoir+=`<td style="text-align:center;font-size:11px;${isWE?'background:#fef9f9':''}${vS?';font-weight:600;color:var(--purple)':';color:var(--txt3)'}">${vS||'—'}</td>`;
+    }
+    tableRows+=`<tr style="background:var(--purple-bg)"><td style="font-weight:700;white-space:nowrap;padding-left:12px;position:sticky;left:0;background:var(--purple-bg);z-index:1">🧪 ${t.section}</td><td style="color:var(--purple);font-size:12px;white-space:nowrap;position:sticky;left:130px;background:var(--purple-bg);z-index:1;box-shadow:2px 0 4px rgba(0,0,0,.06)">Témoin Midi</td>${cellsMidi}<td style="text-align:center;font-weight:700;background:var(--purple-border);color:var(--purple);position:sticky;right:0;box-shadow:-2px 0 4px rgba(0,0,0,.1)">${totMidi}</td></tr>`;
+    tableRows+=`<tr style="background:var(--purple-bg)"><td style="font-weight:700;white-space:nowrap;padding-left:12px;position:sticky;left:0;background:var(--purple-bg);z-index:1">🧪 ${t.section}</td><td style="color:var(--purple);font-size:12px;white-space:nowrap;position:sticky;left:130px;background:var(--purple-bg);z-index:1;box-shadow:2px 0 4px rgba(0,0,0,.06)">Témoin Soir</td>${cellsSoir}<td style="text-align:center;font-weight:700;background:var(--purple-border);color:var(--purple);position:sticky;right:0;box-shadow:-2px 0 4px rgba(0,0,0,.1)">${totSoir}</td></tr>`;
+  });
+  tableRows+=`<tr style="height:4px"><td colspan="${daysInMonth+3}"></td></tr>`;
+
   // Ligne totaux colonnes
   let colTotals='';
   for(let d=0;d<daysInMonth;d++){
@@ -4731,6 +4799,11 @@ function renderReporting(){
         <div class="stat-label">Diners Mixés</div>
         <div class="stat-value">${totalDinMixe}</div>
         <div style="font-size:11px;color:var(--txt3);margin-top:4px">repas du soir</div>
+      </div>
+      <div class="stat-card" style="border-top:3px solid var(--teal)">
+        <div class="stat-label">🧪 Plats témoins (HACCP)</div>
+        <div class="stat-value" style="color:var(--teal)">${data.temoins.reduce((a,t)=>a+t.midi.reduce((x,y)=>x+y,0)+t.soir.reduce((x,y)=>x+y,0),0)}</div>
+        <div style="font-size:11px;color:var(--txt3);margin-top:4px">${data.temoins.map(t=>`${t.section}: ${t.midi.reduce((a,b)=>a+b,0)+t.soir.reduce((a,b)=>a+b,0)}`).join(' · ')}</div>
       </div>
       <div class="stat-card" style="border-top:3px solid var(--purple)">
         <div class="stat-label">Total repas</div>
@@ -4795,6 +4868,17 @@ function printReporting(){
     rows+='<tr style="height:4px;background:#ccc"><td colspan="'+(daysInMonth+3)+'"></td></tr>';
   });
 
+  // Lignes plats témoins (HACCP)
+  let totalTemoins=0;
+  data.temoins.forEach(t=>{
+    const totMidi=t.midi.reduce((a,b)=>a+b,0),totSoir=t.soir.reduce((a,b)=>a+b,0);
+    totalTemoins+=totMidi+totSoir;
+    const mkRow=(arr,tot,label)=>{let c='';arr.forEach((v,i)=>{const dow=new Date(year,month,i+1).getDay();c+=`<td style="text-align:center;background:#f3eefa${dow===0||dow===6?';opacity:.7':''}">${v||''}</td>`});return`<tr style="background:#f3eefa"><td>🧪 ${t.section}</td><td style="color:#7c3aed;font-size:9px">${label}</td>${c}<td style="font-weight:700;text-align:center;background:#ddd0f0">${tot}</td></tr>`};
+    rows+=mkRow(t.midi,totMidi,'Témoin Midi');
+    rows+=mkRow(t.soir,totSoir,'Témoin Soir');
+  });
+  rows+='<tr style="height:4px;background:#ccc"><td colspan="'+(daysInMonth+3)+'"></td></tr>';
+
   let colTots='';
   for(let d=0;d<daysInMonth;d++){let t=0;data.lieux.forEach(l=>{t+=l.midi.normal[d]+l.midi.mixe[d]+l.soir.normal[d]+l.soir.mixe[d]});const dow=new Date(year,month,d+1).getDay();colTots+=`<td style="font-weight:700;text-align:center;background:#e0e0e0${dow===0||dow===6?';color:red':''}">${t||''}</td>`}
   rows+=`<tr style="border-top:2px solid #000"><td colspan="2" style="font-weight:700">TOTAL JOUR</td>${colTots}<td style="font-weight:800;text-align:center;background:#1a56db;color:#fff">${totalDejNormal+totalDejMixe+totalDinNormal+totalDinMixe}</td></tr>`;
@@ -4810,7 +4894,7 @@ function printReporting(){
   table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:2px 3px}th{background:#e0e0e0;font-weight:700;text-align:center}
   </style></head><body>`);
   pw.document.write(`<h1>REPORTING MENSUEL — ${moisNom.toUpperCase()} ${year}</h1><p style="text-align:center;font-size:10px;margin-bottom:12px">Maison Saint-Paul — ANDAPEI Lot-et-Garonne</p>`);
-  pw.document.write(`<div class="synthese"><div class="card"><div class="card-label">Déjeuners Normal</div><div class="card-val">${totalDejNormal}</div></div><div class="card"><div class="card-label">Déjeuners Mixés</div><div class="card-val">${totalDejMixe}</div></div><div class="card"><div class="card-label">Diners Normal</div><div class="card-val">${totalDinNormal}</div></div><div class="card"><div class="card-label">Diners Mixés</div><div class="card-val">${totalDinMixe}</div></div><div class="card" style="background:#1a56db;color:#fff"><div class="card-label">TOTAL REPAS</div><div class="card-val">${totalDejNormal+totalDejMixe+totalDinNormal+totalDinMixe}</div></div></div>`);
+  pw.document.write(`<div class="synthese"><div class="card"><div class="card-label">Déjeuners Normal</div><div class="card-val">${totalDejNormal}</div></div><div class="card"><div class="card-label">Déjeuners Mixés</div><div class="card-val">${totalDejMixe}</div></div><div class="card"><div class="card-label">Diners Normal</div><div class="card-val">${totalDinNormal}</div></div><div class="card"><div class="card-label">Diners Mixés</div><div class="card-val">${totalDinMixe}</div></div><div class="card" style="background:#0e6b7a;color:#fff"><div class="card-label">🧪 Plats témoins</div><div class="card-val">${totalTemoins}</div></div><div class="card" style="background:#1a56db;color:#fff"><div class="card-label">TOTAL REPAS</div><div class="card-val">${totalDejNormal+totalDejMixe+totalDinNormal+totalDinMixe}</div></div></div>`);
   pw.document.write(`<h2>Détail par lieu et par jour</h2><table><thead><tr>${daysH}</tr></thead><tbody>${rows}</tbody></table>`);
   pw.document.write(`</body></html>`);pw.document.close();pw.print();
 }
@@ -4826,6 +4910,8 @@ function exportReportingExcel(){
   // Feuille 1 : Synthèse
   let totalDejNormal=0,totalDejMixe=0,totalDinNormal=0,totalDinMixe=0;
   data.lieux.forEach(l=>{totalDejNormal+=l.midi.normal.reduce((a,b)=>a+b,0);totalDejMixe+=l.midi.mixe.reduce((a,b)=>a+b,0);totalDinNormal+=l.soir.normal.reduce((a,b)=>a+b,0);totalDinMixe+=l.soir.mixe.reduce((a,b)=>a+b,0)});
+  let totalTemoins=0;
+  data.temoins.forEach(t=>{totalTemoins+=t.midi.reduce((a,b)=>a+b,0)+t.soir.reduce((a,b)=>a+b,0)});
   const synthData=[
     [`REPORTING MENSUEL — ${moisNom} ${year}`],
     ['Maison Saint-Paul — ANDAPEI Lot-et-Garonne'],
@@ -4835,7 +4921,12 @@ function exportReportingExcel(){
     ['Déjeuners Mixés',totalDejMixe],
     ['Diners Normal',totalDinNormal],
     ['Diners Mixés',totalDinMixe],
-    ['TOTAL REPAS',totalDejNormal+totalDejMixe+totalDinNormal+totalDinMixe]
+    ['TOTAL REPAS',totalDejNormal+totalDejMixe+totalDinNormal+totalDinMixe],
+    [],
+    ['🧪 Plats témoins (HACCP)',''],
+    ...data.temoins.map(t=>[`  ${t.section} — Midi`,t.midi.reduce((a,b)=>a+b,0)]),
+    ...data.temoins.map(t=>[`  ${t.section} — Soir`,t.soir.reduce((a,b)=>a+b,0)]),
+    ['  TOTAL TÉMOINS',totalTemoins]
   ];
   const ws1=XLSX.utils.aoa_to_sheet(synthData);
   ws1['!cols']=[{wch:25},{wch:15}];
@@ -4858,6 +4949,14 @@ function exportReportingExcel(){
     if(totSX>0)detailData.push([l.nom,'Diner Mixé',...l.soir.mixe.slice(0,daysInMonth),totSX]);
     detailData.push([]);
   });
+
+  // Lignes plats témoins (HACCP)
+  data.temoins.forEach(t=>{
+    const totMidi=t.midi.reduce((a,b)=>a+b,0),totSoir=t.soir.reduce((a,b)=>a+b,0);
+    detailData.push([`🧪 ${t.section}`,'Témoin Midi',...t.midi.slice(0,daysInMonth),totMidi]);
+    detailData.push([`🧪 ${t.section}`,'Témoin Soir',...t.soir.slice(0,daysInMonth),totSoir]);
+  });
+  detailData.push([]);
 
   // Ligne totaux
   const totRow=['','TOTAL JOUR'];
