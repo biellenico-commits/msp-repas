@@ -1994,7 +1994,8 @@ async function sendModifEmail(){
   }
 
   try{
-    emailjs.init(EMAILJS_PUBLIC_KEY);
+    // [DÉMO] envoi email bloqué
+    throw {text:'DEMO_BLOCKED'};
     await emailjs.send(EMAILJS_SERVICE_ID,EMAILJS_TEMPLATE_ID,{
       semaine:`Semaine ${week} - ${year}`,
       periode:`Bon de modification N°${bonNum}`,
@@ -2043,7 +2044,10 @@ async function sendModifEmail(){
     status.style.background='var(--red-bg)';
     status.style.color='var(--red)';
     status.style.border='1px solid var(--red-border)';
-    status.innerHTML=`❌ Erreur : ${e.text||e.message}`;
+    if(e.text==='DEMO_BLOCKED'){
+      status.style.background='var(--amber-bg)';status.style.color='var(--amber)';status.style.border='1px solid var(--amber-border)';
+      status.innerHTML='🔒 <strong>Envoi désactivé en mode démo</strong> — Dans la vraie application, cet email serait transmis automatiquement.';
+    }else{status.innerHTML=`❌ Erreur : ${e.text||e.message}`;}
     btn.disabled=false;btn.textContent='📧 Envoyer à la cuisine';
   }
 }
@@ -2436,66 +2440,13 @@ function sendEmailCommande(){
 }
 
 async function doSendEmail(){
-  if(!EMAILJS_PUBLIC_KEY){
-    // Afficher instructions de configuration
-    $('email-status').style.display='block';
-    $('email-status').style.background='var(--amber-bg)';
-    $('email-status').style.color='var(--amber)';
-    $('email-status').style.border='1px solid var(--amber-border)';
-    $('email-status').innerHTML=`⚠️ <strong>Configuration EmailJS requise</strong><br>
-      <ol style="margin-top:8px;padding-left:20px;line-height:2;font-size:12px">
-        <li>Crée un compte gratuit sur <a href="https://emailjs.com" target="_blank">emailjs.com</a></li>
-        <li>Ajoute un service email (Gmail ou autre)</li>
-        <li>Crée un template avec les variables : <code>{{semaine}}</code>, <code>{{contenu_html}}</code>, <code>{{note}}</code></li>
-        <li>Copie ton <strong>Service ID</strong>, <strong>Template ID</strong> et <strong>Public Key</strong></li>
-        <li>Remplace les valeurs en haut du fichier HTML</li>
-      </ol>`;
-    return;
-  }
-
-  const btn=$('btn-send-email');
-  btn.disabled=true;btn.textContent='⏳ Envoi…';
-
-  try{
-    emailjs.init(EMAILJS_PUBLIC_KEY);
-    const week=S.currentWeek,year=S.currentYear;
-    const mon=getDateForDay(week,0),sun=getDateForDay(week,6);
-    const note=$('email-note').value.trim();
-    const htmlContent=buildCommandeHTML();
-
-    await emailjs.send(EMAILJS_SERVICE_ID,EMAILJS_TEMPLATE_ID,{
-      semaine:`Semaine ${week} - ${year}`,
-      periode:`Du ${fmtDate(mon.toISOString())} au ${fmtDate(sun.toISOString())}`,
-      etablissement:'Maison Saint-Paul - ANDAPEI Lot-et-Garonne',
-      to_email:EMAIL_CUISINE,
-      cc_email:EMAIL_CC,
-      note:note||'Aucune remarque particulière.',
-      contenu_html:htmlContent
-    });
-
-    $('email-status').style.display='block';
-    $('email-status').style.background='var(--green-bg)';
-    $('email-status').style.color='var(--green)';
-    $('email-status').style.border='1px solid var(--green-border)';
-    $('email-status').innerHTML=`✅ Email envoyé avec succès à <strong>${EMAIL_CUISINE}</strong> (cc: ${EMAIL_CC})`;
-    toast('Commande envoyée par email','success');
-    auditLog('EMAIL_ENVOYE',{semaine:wk(),destinataire:EMAIL_CUISINE});
-    trackPrint();
-    renderTotaux();
-    renderCommande();
-    btn.textContent='✅ Envoyé';
-    btn.disabled=false;
-    setTimeout(()=>{closeModal('modal-email');btn.textContent='📧 Envoyer';},3000);
-  }catch(e){
-    console.error('Email error:',e);
-    $('email-status').style.display='block';
-    $('email-status').style.background='var(--red-bg)';
-    $('email-status').style.color='var(--red)';
-    $('email-status').style.border='1px solid var(--red-border)';
-    $('email-status').innerHTML=`❌ Erreur d'envoi : ${e.text||e.message||'Vérifiez la configuration EmailJS'}`;
-    toast('Erreur envoi email','error');
-    btn.disabled=false;btn.textContent='📧 Envoyer';
-  }
+  // [DÉMO] Envoi bloqué — affiche un message à la place
+  const status=$('email-status');
+  status.style.display='block';
+  status.style.background='var(--amber-bg)';
+  status.style.color='var(--amber)';
+  status.style.border='1px solid var(--amber-border)';
+  status.innerHTML=`🔒 <strong>Envoi désactivé en mode démo</strong><br><span style="font-size:12px">Dans la vraie application, cet email serait transmis automatiquement à la cuisine centrale.</span>`;
 }
 
 // ============================================================
@@ -3423,7 +3374,8 @@ async function confirmRenvoiBon(){
   }
 
   try{
-    emailjs.init(EMAILJS_PUBLIC_KEY);
+    // [DÉMO] envoi email bloqué
+    throw {text:'DEMO_BLOCKED'};
     await emailjs.send(EMAILJS_SERVICE_ID,EMAILJS_TEMPLATE_ID,{
       semaine:`Semaine ${b.week} - ${b.year}`,
       periode:`Bon de modification N°${b.bonNumber} (renvoi)`,
@@ -3448,7 +3400,10 @@ async function confirmRenvoiBon(){
     status.style.display='block';
     status.style.background='var(--red-bg)';
     status.style.color='var(--red)';
-    status.innerHTML=`❌ Erreur : ${e.text||e.message}`;
+    if(e.text==='DEMO_BLOCKED'){
+      status.style.background='var(--amber-bg)';status.style.color='var(--amber)';status.style.border='1px solid var(--amber-border)';
+      status.innerHTML='🔒 <strong>Envoi désactivé en mode démo</strong> — Dans la vraie application, cet email serait transmis automatiquement.';
+    }else{status.innerHTML=`❌ Erreur : ${e.text||e.message}`;}
     btn.disabled=false;btn.textContent='📧 Renvoyer';
   }
 }
