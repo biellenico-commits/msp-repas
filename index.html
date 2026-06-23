@@ -988,8 +988,8 @@ const MONTHS=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août'
 // ============================================================
 const $=id=>document.getElementById(id);
 const uid=()=>'id_'+Date.now()+'_'+Math.random().toString(36).substr(2,6);
-function getCurWeek(){const n=new Date(),s=new Date(n.getFullYear(),0,1),d=n-s+(s.getTimezoneOffset()-n.getTimezoneOffset())*6e4;return Math.ceil(d/6048e5)}
-function getCurYear(){return new Date().getFullYear()}
+function getCurWeek(){const{week}=getISOWeek(new Date());return week}
+function getCurYear(){const{year}=getISOWeek(new Date());return year}
 function wk(){return`${S.currentYear}_${S.currentWeek}`}
 function getLieu(id){return S.lieux.find(l=>l.id===id)}
 function getTex(n){return S.textures.find(t=>t.nom===n)}
