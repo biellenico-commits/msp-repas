@@ -2350,7 +2350,7 @@ function renderTotaux(){
   }
   
   const sites={};
-  S.lieux.filter(l=>!l.isStaffOnly).forEach(l=>{const s=l.section||'Autre';if(!sites[s])sites[s]=[];sites[s].push(l)});
+  S.lieux.forEach(l=>{const s=l.section||'Autre';if(!sites[s])sites[s]=[];sites[s].push(l)});
   
   let html='';
   Object.keys(sites).sort().forEach(siteName=>{
@@ -2428,7 +2428,7 @@ function printTotaux(){
 function confirmPrint(){
   const w=wk(),week=S.currentWeek,year=S.currentYear;
   const mon=getDateForDay(week,0),sun=getDateForDay(week,6);
-  const sites={};S.lieux.filter(l=>!l.isStaffOnly).forEach(l=>{const s=l.section||'Autre';if(!sites[s])sites[s]=[];sites[s].push(l)});
+  const sites={};S.lieux.forEach(l=>{const s=l.section||'Autre';if(!sites[s])sites[s]=[];sites[s].push(l)});
   
   const pw=window.open('','_blank');
   pw.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Commande S${week}</title><style>@page{margin:10mm;size:A4 landscape}*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;font-size:10px;color:#000}h1{text-align:center;font-size:18px;margin-bottom:5px}h2{font-size:14px;margin:15px 0 8px;border-bottom:2px solid #000;padding-bottom:3px}table{width:100%;border-collapse:collapse;margin-bottom:15px;page-break-inside:avoid}th,td{border:1px solid #000;padding:3px;text-align:center}th{background:#e0e0e0;font-weight:700}.tot{background:#d4edda;font-weight:700}.pn-cell{background:#fff3cd;color:#856404}</style></head><body>`);
@@ -2516,7 +2516,7 @@ function confirmPrint(){
 function buildCommandeHTML(){
   const w=wk(),week=S.currentWeek,year=S.currentYear;
   const mon=getDateForDay(week,0),sun=getDateForDay(week,6);
-  const sites={};S.lieux.filter(l=>!l.isStaffOnly).forEach(l=>{const s=l.section||'Autre';if(!sites[s])sites[s]=[];sites[s].push(l)});
+  const sites={};S.lieux.forEach(l=>{const s=l.section||'Autre';if(!sites[s])sites[s]=[];sites[s].push(l)});
 
   let html=`<h2 style="color:#1a56db;font-family:Arial,sans-serif">Commande Cuisine Centrale</h2>
 <p style="font-family:Arial,sans-serif;color:#6b7280">Semaine ${week} / ${year} — Du ${fmtDate(mon.toISOString())} au ${fmtDate(sun.toISOString())}<br>Maison Saint-Paul — ANDAPEI Lot-et-Garonne</p>`;
@@ -2678,7 +2678,7 @@ function calcTotauxByLieu(weekData){
     if(ov !== undefined && ov !== null) return ov;
     return (g[field]||Array(7).fill(0))[dayIdx] || 0;
   };
-  S.lieux.filter(l=>!l.isStaffOnly).forEach(lieu=>{
+  S.lieux.forEach(lieu=>{
     const regMap=new Map();
     const pnMap=new Map();
     for(let di=0;di<7;di++){
