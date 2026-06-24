@@ -3599,50 +3599,14 @@ async function confirmRenvoiBon(){
   const status=$('renvoi-status');
   btn.disabled=true;btn.textContent='⏳ Envoi…';
 
-  // Pour le renvoi : toujours reconstruire depuis les modifications brutes stockées
-  // (le deltaHTML stocké peut être corrompu ou calculé avec un ancien snapshot)
-  const mods=b.modifications||[];
-  let htmlMods=`<h3 style="font-family:Arial,sans-serif;color:#dc2626;margin-bottom:2px">BON DE MODIFICATION N°${b.bonNumber}</h3>`;
-  htmlMods+=`<p style="font-family:Arial,sans-serif;color:#6b7280;font-size:12px;margin-bottom:14px">Semaine ${b.week}/${b.year} — Du ${b.dateDebut} au ${b.dateFin}</p>`;
-  console.log('[RENVOI] b.deltaHTML length:', b.deltaHTML?.length, 'mods:', mods.length, 'bonNumber:', b.bonNumber);
-  if(mods.length){
-    // Agréger par régime+jour+service
-    const agg={};
-    mods.forEach(m=>{
-      const r=S.residents.find(x=>x.id===m.personId)||(S.temporaires||[]).find(x=>x.id===m.personId);
-      const regime=r?(r.regime+(r.special?' + '+r.special:'')):'Normal';
-      const key=`${regime}|${m.dayName}|${m.service}`;
-      if(!agg[key])agg[key]={regime,jour:m.dayName,service:m.service,delta:0,pnDelta:0};
-      const wasOK=m.oldValue==='OK', isOK=m.newValue==='OK';
-      const wasPN=m.oldValue==='PN', isPN=m.newValue==='PN';
-      const wasDeloc=m.oldValue==='Délocalisé'||(!wasOK&&!wasPN&&m.oldValue&&m.oldValue!=='ABS');
-      const isDeloc=m.newValue==='Délocalisé'||(!isOK&&!isPN&&m.newValue&&m.newValue!=='ABS');
-      // +1 repas si on passe de absent/délocalisé à présent
-      if(!wasOK&&!wasPN&&!wasDeloc&&isOK) agg[key].delta+=1;  // ABS→OK
-      if(wasOK&&!isOK&&!isPN&&!isDeloc) agg[key].delta-=1;   // OK→ABS
-      if(!wasPN&&isPN) agg[key].pnDelta+=1;
-      if(wasPN&&!isPN) agg[key].pnDelta-=1;
-    });
-    const rows=Object.values(agg).filter(a=>a.delta!==0||a.pnDelta!==0);
-    if(rows.length){
-      htmlMods+=`<table border="1" cellpadding="5" cellspacing="0" style="border-collapse:collapse;font-family:Arial,sans-serif;font-size:12px;width:100%;margin-top:10px">`;
-      htmlMods+=`<thead><tr style="background:#e5e7eb"><th>Régime</th><th>Résident</th><th>Jour</th><th>Service</th><th>Avant</th><th>Après</th></tr></thead><tbody>`;
-      mods.forEach(m=>{
-        const r=S.residents.find(x=>x.id===m.personId)||(S.temporaires||[]).find(x=>x.id===m.personId);
-        const regime=r?(r.regime+(r.special?' + '+r.special:'')):'Normal';
-        const colorOld=m.oldValue==='ABS'?'#dc2626':m.oldValue==='PN'?'#b45309':'#059669';
-        const colorNew=m.newValue==='ABS'?'#dc2626':m.newValue==='PN'?'#b45309':'#059669';
-        htmlMods+=`<tr><td>${regime}</td><td style="font-weight:700">${m.personName||'—'}</td><td>${m.dayName}</td><td>${m.service}</td>`;
-        htmlMods+=`<td style="text-align:center;color:${colorOld};font-weight:700">${m.oldValue}</td>`;
-        htmlMods+=`<td style="text-align:center;color:${colorNew};font-weight:700">${m.newValue}</td></tr>`;
-      });
-      htmlMods+=`</tbody></table>`;
-    } else {
-      htmlMods+=`<p style="font-family:Arial,sans-serif;color:#6b7280">Aucune modification nette à signaler.</p>`;
-    }
-  } else {
-    htmlMods+=`<p style="font-family:Arial,sans-serif;color:#6b7280">Détail des modifications non disponible pour ce bon.</p>`;
-  }
+  // Renvoi : utiliser le deltaHTML stocké lors du premier envoi (toujours juste)
+  // Juste mettre à jour le titre pour indiquer que c'est un renvoi
+  let htmlMods = b.deltaHTML
+    ? b.deltaHTML.replace(
+        `BON DE MODIFICATION N°${b.bonNumber}</h3>`,
+        `BON DE MODIFICATION N°${b.bonNumber} (renvoi)</h3>`
+      )
+    : `<h3 style="font-family:Arial,sans-serif;color:#dc2626;margin-bottom:2px">BON DE MODIFICATION N°${b.bonNumber} (renvoi)</h3><p style="font-family:Arial,sans-serif;color:#6b7280;font-size:12px">Semaine ${b.week}/${b.year} — Du ${b.dateDebut} au ${b.dateFin}</p><p style="font-family:Arial,sans-serif;color:#6b7280">Le détail de ce bon n'est plus disponible.</p>`;
 
   if(!EMAILJS_PUBLIC_KEY){
     status.style.display='block';
