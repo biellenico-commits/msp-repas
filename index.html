@@ -2076,8 +2076,7 @@ function openModifModal(){
 // Construit le tableau HTML +N/-N par lieu, régime et jour (delta net), à partir
 // du snapshot initial (avant impression) et de l'état courant
 function buildDeltaHTML(week, year, bonNum, mods){
-  // Calcule le tableau +N/-N par section/régime/jour directement depuis les modifications brutes
-  // Cette approche ne dépend pas des snapshots et est toujours fiable.
+  console.log('[BUILD] mods reçus:', mods?.length, JSON.stringify(mods?.map(m=>({n:m.personName,ig:m.isGroupe,ov:m.oldValue,nv:m.newValue}))));
   if(!mods||!mods.length) return '';
 
   const mon = getDateForDay(week,0), sun = getDateForDay(week,6);
