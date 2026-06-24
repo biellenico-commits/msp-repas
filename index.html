@@ -2087,11 +2087,12 @@ function buildDeltaHTML(week, year, bonNum, mods){
   // {section: {regime: {di: {midi: delta, soir: delta}}}}
   const agg = {};
 
-  const getSection = (personId) => {
-    const r = S.residents.find(x=>x.id===personId) || (S.temporaires||[]).find(x=>x.id===personId);
-    if(!r) return null;
-    // Trouver le lieu midi de cette personne
-    const lieuId = r.lieuMidi || r.lieu_midi;
+  const getSection = (personId, service) => {
+    // AT : lieu stocké directement sur l'objet
+    const t = (S.temporaires||[]).find(x=>x.id===personId);
+    if(t){ const lieuId = service==='soir' ? t.lieuSoir : t.lieuMidi; const lieu=S.lieux.find(l=>l.id===lieuId); return lieu?.section||null; }
+    // Résident : lieu dans S.affectations
+    const lieuId = service==='soir' ? S.affectations[personId]?.soir : S.affectations[personId]?.midi;
     const lieu = S.lieux.find(l=>l.id===lieuId);
     return lieu?.section || null;
   };
@@ -2117,7 +2118,8 @@ function buildDeltaHTML(week, year, bonNum, mods){
     const isGroupe = m.isGroupe === true;
     const section = isGroupe
       ? (() => { const g=S.groupes.find(x=>x.id===m.personId); const lieu=S.lieux.find(l=>l.id===g?.lieuId); return lieu?.section||null; })()
-      : getSection(m.personId);
+      : getSection(m.personId, m.service);
+    console.log('[MOD]', m.personName, '| isGroupe:', isGroupe, '| section:', section, '| affectation:', S.affectations[m.personId], '| oldV:', m.oldValue, '| newV:', m.newValue);
     if(!section) return;
 
     const regime = isGroupe ? 'Normal' : getRegime(m.personId);
@@ -2195,6 +2197,7 @@ function buildDeltaHTML(week, year, bonNum, mods){
 async function sendModifEmail(){
   const w=wk(),week=S.currentWeek,year=S.currentYear;
   const mods=S.printHistory?.[w]?.modifications||[];
+  console.log('[SEND] w:', w, 'mods:', mods.length, JSON.stringify(mods.map(m=>m.personName)));
   const note=$('modif-note').value.trim();
   const btn=$('btn-send-modif');
   const status=$('modif-email-status');
