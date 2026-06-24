@@ -2115,8 +2115,10 @@ function buildDeltaHTML(week, year, bonNum, mods){
   const DAYS = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
 
   mods.forEach(m => {
-    const isGroupe = m.personName && (m.personName.includes('(Repas Midi)') || m.personName.includes('(Repas Soir)') || S.groupes.some(g=>m.personName?.startsWith(g.nom)));
-    const section = isGroupe ? getGroupeSection(m) : getSection(m.personId);
+    const isGroupe = m.isGroupe === true;
+    const section = isGroupe
+      ? (() => { const g=S.groupes.find(x=>x.id===m.personId); const lieu=S.lieux.find(l=>l.id===g?.lieuId); return lieu?.section||null; })()
+      : getSection(m.personId);
     if(!section) return;
 
     const regime = isGroupe ? 'Normal' : getRegime(m.personId);
@@ -2135,9 +2137,9 @@ function buildDeltaHTML(week, year, bonNum, mods){
     const isPN  = m.newValue === 'PN';
 
     let delta = 0;
-    if(typeof m.oldValue === 'number' && typeof m.newValue === 'number'){
-      // Groupe personnel : delta direct
-      delta = m.newValue - m.oldValue;
+    if(m.isGroupe){
+      // Groupe personnel : oldValue et newValue sont des strings numériques
+      delta = (parseInt(m.newValue)||0) - (parseInt(m.oldValue)||0);
     } else {
       if(wasOK && !isOK && !isPN) delta = -1; // OK/Déloc → ABS
       if(!wasOK && !wasPN && isOK) delta = +1; // ABS → OK/Déloc
