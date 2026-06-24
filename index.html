@@ -2081,18 +2081,10 @@ function buildDeltaHTML(week, year, bonNum){
   if(!snapInit){console.warn('[BON] Pas de snapshot pour',w);return ''}
   const snapCur = {absences: JSON.parse(JSON.stringify(S.absences[w]||{})), piquenique: JSON.parse(JSON.stringify(S.piquenique[w]||{})), groupesOverrides: JSON.parse(JSON.stringify(S.groupesOverrides?.[w]||{})), delocalisations: JSON.parse(JSON.stringify(S.delocalisations?.[w]||{}))};
 
-  // DEBUG
-  if(JSON.stringify(snapInit)===JSON.stringify(snapCur)){
-    console.warn('[BON] Snapshots identiques — aucune diff');
-    toast('⚠️ Snapshots identiques : aucune diff détectée','warn',5000);
-  } else {
-    console.log('[BON] Diff OK');
-  }
-
   const tAvant = calcTotauxByLieu(snapInit);
   const tApres = calcTotauxByLieu(snapCur);
   const sections = {};
-  S.lieux.filter(l=>!l.isStaffOnly).forEach(l=>{const s=l.section||'Autre'; if(!sections[s])sections[s]=[]; sections[s].push(l.nom)});
+  S.lieux.forEach(l=>{const s=l.section||'Autre'; if(!sections[s])sections[s]=[]; sections[s].push(l.nom)});
 
   const mon = getDateForDay(week,0), sun = getDateForDay(week,6);
   let html = `<h3 style="font-family:Arial,sans-serif;color:#dc2626;margin-bottom:2px">BON DE MODIFICATION N°${bonNum}</h3>`;
