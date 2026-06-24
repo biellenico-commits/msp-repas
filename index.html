@@ -2087,14 +2087,31 @@ function buildDeltaHTML(week, year, bonNum, mods){
   // {section: {regime: {di: {midi: delta, soir: delta}}}}
   const agg = {};
 
-  const getSection = (personId, service) => {
-    // AT : lieu stocké directement sur l'objet
+  const getLieuSection = (personId, personName, service) => {
+    // 1. Cherche dans les affectations résidents
+    const aff = S.affectations?.[personId];
+    if(aff){
+      const lieuId = service==='soir' ? aff.soir : aff.midi;
+      const lieu = S.lieux.find(l=>l.id===lieuId);
+      if(lieu?.section) return lieu.section;
+    }
+    // 2. Cherche dans les AT
     const t = (S.temporaires||[]).find(x=>x.id===personId);
-    if(t){ const lieuId = service==='soir' ? t.lieuSoir : t.lieuMidi; const lieu=S.lieux.find(l=>l.id===lieuId); return lieu?.section||null; }
-    // Résident : lieu dans S.affectations
-    const lieuId = service==='soir' ? S.affectations[personId]?.soir : S.affectations[personId]?.midi;
-    const lieu = S.lieux.find(l=>l.id===lieuId);
-    return lieu?.section || null;
+    if(t){
+      const lieuId = service==='soir' ? t.lieuSoir : t.lieuMidi;
+      const lieu = S.lieux.find(l=>l.id===lieuId);
+      if(lieu?.section) return lieu.section;
+    }
+    // 3. Fallback par nom (si personId ne correspond pas)
+    const rByName = S.residents.find(x=>x.nom===personName || personName?.startsWith(x.nom));
+    if(rByName){
+      const aff2 = S.affectations?.[rByName.id];
+      const lieuId = service==='soir' ? aff2?.soir : aff2?.midi;
+      const lieu = S.lieux.find(l=>l.id===lieuId);
+      if(lieu?.section) return lieu.section;
+    }
+    console.warn('[SECTION non trouvée]', personId, personName, service, 'affectations:', JSON.stringify(S.affectations?.[personId]));
+    return null;
   };
 
   const getRegime = (personId) => {
@@ -2118,7 +2135,7 @@ function buildDeltaHTML(week, year, bonNum, mods){
     const isGroupe = m.isGroupe === true;
     const section = isGroupe
       ? (() => { const g=S.groupes.find(x=>x.id===m.personId); const lieu=S.lieux.find(l=>l.id===g?.lieuId); return lieu?.section||null; })()
-      : getSection(m.personId, m.service);
+      : getLieuSection(m.personId, m.personName, m.service);
     console.log('[MOD]', m.personName, '| isGroupe:', isGroupe, '| section:', section, '| affectation:', S.affectations[m.personId], '| oldV:', m.oldValue, '| newV:', m.newValue);
     if(!section) return;
 
