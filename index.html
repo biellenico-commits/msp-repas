@@ -2078,8 +2078,16 @@ function openModifModal(){
 function buildDeltaHTML(week, year, bonNum){
   const w = `${year}_${week}`;
   const snapInit = S.printHistory[w]?.snapshot;
-  if(!snapInit) return '';
+  if(!snapInit){console.warn('[BON] Pas de snapshot pour',w);return ''}
   const snapCur = {absences: JSON.parse(JSON.stringify(S.absences[w]||{})), piquenique: JSON.parse(JSON.stringify(S.piquenique[w]||{})), groupesOverrides: JSON.parse(JSON.stringify(S.groupesOverrides?.[w]||{})), delocalisations: JSON.parse(JSON.stringify(S.delocalisations?.[w]||{}))};
+
+  // DEBUG
+  if(JSON.stringify(snapInit)===JSON.stringify(snapCur)){
+    console.warn('[BON] Snapshots identiques — aucune diff');
+    toast('⚠️ Snapshots identiques : aucune diff détectée','warn',5000);
+  } else {
+    console.log('[BON] Diff OK');
+  }
 
   const tAvant = calcTotauxByLieu(snapInit);
   const tApres = calcTotauxByLieu(snapCur);
