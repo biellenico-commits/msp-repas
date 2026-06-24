@@ -3601,6 +3601,7 @@ async function confirmRenvoiBon(){
 
   // Reconstruire le HTML si non stocké (anciens bons), sinon réutiliser
   let htmlMods=b.deltaHTML;
+  console.log('[RENVOI] b.deltaHTML length:', htmlMods?.length, 'bonNumber:', b.bonNumber);
   if(!htmlMods){
     htmlMods=`<h3 style="font-family:Arial,sans-serif;color:#dc2626">BON DE MODIFICATION N°${b.bonNumber} (renvoi)</h3><p style="font-family:Arial,sans-serif;color:#6b7280;font-size:12px">Semaine ${b.week}/${b.year} — Du ${b.dateDebut} au ${b.dateFin}</p>`;
     // Fallback : reconstruire un tableau agrégé +N/-N à partir des modifications brutes stockées
