@@ -2075,120 +2075,117 @@ function openModifModal(){
 
 // Construit le tableau HTML +N/-N par lieu, régime et jour (delta net), à partir
 // du snapshot initial (avant impression) et de l'état courant
-function buildDeltaHTML(week, year, bonNum){
-  const w = `${year}_${week}`;
-  const snapInit = S.printHistory[w]?.snapshot;
-  if(!snapInit) return '';
+function buildDeltaHTML(week, year, bonNum, mods){
+  // Calcule le tableau +N/-N par section/régime/jour directement depuis les modifications brutes
+  // Cette approche ne dépend pas des snapshots et est toujours fiable.
+  if(!mods||!mods.length) return '';
 
   const mon = getDateForDay(week,0), sun = getDateForDay(week,6);
   let html = `<h3 style="font-family:Arial,sans-serif;color:#dc2626;margin-bottom:2px">BON DE MODIFICATION N°${bonNum}</h3>`;
   html += `<p style="font-family:Arial,sans-serif;color:#6b7280;font-size:12px;margin-bottom:14px">Semaine ${week}/${year} — Du ${fmtDate(mon.toISOString())} au ${fmtDate(sun.toISOString())}</p>`;
 
-  // Calcule les totaux par section/jour/service/régime pour un état donné
-  function calcParSection(state){
-    const res={};
-    const sects={};
-    S.lieux.forEach(l=>{const s=l.section||'Autre';if(!sects[s])sects[s]=[];sects[s].push(l);});
-    Object.keys(sects).forEach(sn=>{
-      res[sn]={};
-      for(let di=0;di<7;di++){
-        res[sn][di]={midi:{},soir:{}};
-        sects[sn].forEach(lieu=>{
-          // Résidents
-          S.residents.filter(p=>isResidentActive(p,getDateForDay(week,di))).forEach(p=>{
-            ['midi','soir'].forEach(svc=>{
-              const defL=S.affectations[p.id]?.[svc];
-              const effL=state.delocalisations?.[`${p.id}_${di}_${svc}`]||defL;
-              if(effL!==lieu.id)return;
-              const slot=di*2+(svc==='soir'?1:0);
-              if((state.absences[p.id]||[])[slot])return;
-              const isPn=!!(state.piquenique?.[`${p.id}_${di}_${svc}`]);
-              const k=(p.regime+(p.special?' + '+p.special:''))+(isPn?'__PN':'');
-              res[sn][di][svc][k]=(res[sn][di][svc][k]||0)+1;
-            });
-          });
-          // AT
-          (S.temporaires||[]).filter(t=>isTempoActive(t,week,year)).forEach(t=>{
-            ['midi','soir'].forEach(svc=>{
-              const lId=svc==='midi'?t.lieuMidi:t.lieuSoir;
-              if(lId!==lieu.id)return;
-              const slot=di*2+(svc==='soir'?1:0);
-              if((state.absences[t.id]||[])[slot])return;
-              const isPn=!!(state.piquenique?.[`${t.id}_${di}_${svc}`]);
-              const k=(t.regime+(t.special?' + '+t.special:''))+(isPn?'__PN':'');
-              res[sn][di][svc][k]=(res[sn][di][svc][k]||0)+1;
-            });
-          });
-          // Groupes Personnel
-          S.groupes.filter(g=>g.lieuId===lieu.id).forEach(g=>{
-            const getOv=(field,idx)=>{const ov=state.groupesOverrides?.[g.id]?.[field]?.[idx];if(ov!=null)return ov;return(g[field]||Array(7).fill(0))[idx]||0;};
-            const vM=getOv('vals',di),vS=getOv('valsSoir',di);
-            const vPM=getOv('valsPn',di),vPS=getOv('valsSoirPn',di);
-            if(vM)res[sn][di]['midi']['Normal']=(res[sn][di]['midi']['Normal']||0)+vM;
-            if(vS)res[sn][di]['soir']['Normal']=(res[sn][di]['soir']['Normal']||0)+vS;
-            if(vPM)res[sn][di]['midi']['Normal__PN']=(res[sn][di]['midi']['Normal__PN']||0)+vPM;
-            if(vPS)res[sn][di]['soir']['Normal__PN']=(res[sn][di]['soir']['Normal__PN']||0)+vPS;
-          });
-        });
-      }
-    });
-    return res;
-  }
+  // Agréger par section / régime / jour / service
+  // {section: {regime: {di: {midi: delta, soir: delta}}}}
+  const agg = {};
 
-  const snapCur={
-    absences:JSON.parse(JSON.stringify(S.absences[w]||{})),
-    piquenique:JSON.parse(JSON.stringify(S.piquenique[w]||{})),
-    groupesOverrides:JSON.parse(JSON.stringify(S.groupesOverrides?.[w]||{})),
-    delocalisations:JSON.parse(JSON.stringify(S.delocalisations?.[w]||{}))
+  const getSection = (personId) => {
+    const r = S.residents.find(x=>x.id===personId) || (S.temporaires||[]).find(x=>x.id===personId);
+    if(!r) return null;
+    // Trouver le lieu midi de cette personne
+    const lieuId = r.lieuMidi || r.lieu_midi;
+    const lieu = S.lieux.find(l=>l.id===lieuId);
+    return lieu?.section || null;
   };
 
-  const tAv=calcParSection(snapInit);
-  const tAp=calcParSection(snapCur);
+  const getRegime = (personId) => {
+    const r = S.residents.find(x=>x.id===personId) || (S.temporaires||[]).find(x=>x.id===personId);
+    if(!r) return 'Normal';
+    return r.regime + (r.special ? ' + ' + r.special : '');
+  };
 
-  // DEBUG — ouvre la console (F12) et cherche [DELTA]
-  console.log('[DELTA] snapInit groupesOverrides:', JSON.stringify(snapInit.groupesOverrides));
-  console.log('[DELTA] snapCur groupesOverrides:', JSON.stringify(snapCur.groupesOverrides));
-  console.log('[DELTA] tAv Maison Saint Paul di=3 midi:', JSON.stringify(tAv['Maison Saint Paul']?.[3]?.midi));
-  console.log('[DELTA] tAp Maison Saint Paul di=3 midi:', JSON.stringify(tAp['Maison Saint Paul']?.[3]?.midi));
-  console.log('[DELTA] tAv Foyer Tournon di=3 midi:', JSON.stringify(tAv['Foyer Tournon']?.[3]?.midi));
-  console.log('[DELTA] tAp Foyer Tournon di=3 midi:', JSON.stringify(tAp['Foyer Tournon']?.[3]?.midi));
+  // Pour les groupes Personnel (pas de personId individuel, identifié par personName contenant "(Repas")
+  const getGroupeSection = (m) => {
+    // Le nom contient "(Repas Midi)" ou "(Repas Soir)" — chercher le groupe
+    const g = S.groupes.find(g => m.personName && m.personName.startsWith(g.nom));
+    if(!g) return null;
+    const lieu = S.lieux.find(l=>l.id===g.lieuId);
+    return lieu?.section || null;
+  };
 
-  const allSections=[...new Set(S.lieux.map(l=>l.section||'Autre'))].sort();
+  const DAYS = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
 
-  allSections.forEach(sn=>{
-    const av=tAv[sn]||{}, ap=tAp[sn]||{};
-    const allKeys=new Set();
-    for(let di=0;di<7;di++){
-      Object.keys(av[di]?.midi||{}).forEach(k=>allKeys.add(k));
-      Object.keys(av[di]?.soir||{}).forEach(k=>allKeys.add(k));
-      Object.keys(ap[di]?.midi||{}).forEach(k=>allKeys.add(k));
-      Object.keys(ap[di]?.soir||{}).forEach(k=>allKeys.add(k));
+  mods.forEach(m => {
+    const isGroupe = m.personName && (m.personName.includes('(Repas Midi)') || m.personName.includes('(Repas Soir)') || S.groupes.some(g=>m.personName?.startsWith(g.nom)));
+    const section = isGroupe ? getGroupeSection(m) : getSection(m.personId);
+    if(!section) return;
+
+    const regime = isGroupe ? 'Normal' : getRegime(m.personId);
+    const di = DAYS.indexOf(m.dayName);
+    if(di < 0) return;
+    const svc = m.service; // 'midi' ou 'soir'
+
+    if(!agg[section]) agg[section] = {};
+    if(!agg[section][regime]) agg[section][regime] = {};
+    if(!agg[section][regime][di]) agg[section][regime][di] = {midi:0, soir:0};
+
+    // Calculer le delta : combien de repas en plus ou en moins ?
+    const wasOK = m.oldValue === 'OK' || m.oldValue === 'Délocalisé';
+    const isOK  = m.newValue === 'OK' || m.newValue === 'Délocalisé';
+    const wasPN = m.oldValue === 'PN';
+    const isPN  = m.newValue === 'PN';
+
+    let delta = 0;
+    if(typeof m.oldValue === 'number' && typeof m.newValue === 'number'){
+      // Groupe personnel : delta direct
+      delta = m.newValue - m.oldValue;
+    } else {
+      if(wasOK && !isOK && !isPN) delta = -1; // OK/Déloc → ABS
+      if(!wasOK && !wasPN && isOK) delta = +1; // ABS → OK/Déloc
+      if(wasPN && !isPN && !isOK) delta = -1;  // PN → ABS
+      if(!wasPN && !wasOK && isPN) delta = 0;  // ABS → PN (toujours 1 repas)
+      if(wasPN && isOK) delta = 0;             // PN → OK (même nombre)
+      if(wasOK && isPN) delta = 0;             // OK → PN (même nombre)
     }
-    let hasDelta=false;
-    allKeys.forEach(k=>{for(let di=0;di<7;di++){if((av[di]?.midi?.[k]||0)!==(ap[di]?.midi?.[k]||0)||(av[di]?.soir?.[k]||0)!==(ap[di]?.soir?.[k]||0))hasDelta=true}});
-    if(!hasDelta)return;
 
-    html+=`<div style="font-family:Arial,sans-serif;font-weight:700;font-size:13px;background:#111;color:#fff;padding:5px 10px;margin:14px 0 6px">${sn.toUpperCase()}</div>`;
-    html+=`<table border="1" cellpadding="4" cellspacing="0" style="border-collapse:collapse;font-family:Arial,sans-serif;font-size:11px;width:100%">`;
-    html+=`<thead><tr style="background:#e5e7eb"><th>RÉGIME</th>`;
-    DAYS_S.forEach(d=>html+=`<th colspan="2">${d}<br><span style="font-size:8px">M / S</span></th>`);
-    html+=`<th>TOTAL</th></tr></thead><tbody>`;
+    if(delta !== 0) agg[section][regime][di][svc] += delta;
+  });
 
-    [...allKeys].sort().forEach(k=>{
-      let row='',tot=0,hasD=false;
-      for(let di=0;di<7;di++){
-        const dM=(ap[di]?.midi?.[k]||0)-(av[di]?.midi?.[k]||0);
-        const dS=(ap[di]?.soir?.[k]||0)-(av[di]?.soir?.[k]||0);
-        tot+=dM+dS;if(dM||dS)hasD=true;
-        const f=(v)=>v===0?'<span style="color:#ccc">—</span>':`<span style="color:${v>0?'#059669':'#dc2626'};font-weight:800">${v>0?'+':''}${v}</span>`;
-        row+=`<td style="text-align:center">${f(dM)}</td><td style="text-align:center">${f(dS)}</td>`;
-      }
-      if(!hasD)return;
-      const lbl=k.replace('__PN',' (PN)');
-      const tc=tot>0?'#059669':tot<0?'#dc2626':'#666';
-      html+=`<tr><td style="font-weight:700;padding:4px 6px">${lbl}</td>${row}<td style="text-align:center;font-weight:800;color:${tc};background:#f3f4f6">${tot>0?'+':''}${tot}</td></tr>`;
+  const allSections = Object.keys(agg).sort();
+  if(!allSections.length) return '';
+
+  allSections.forEach(sn => {
+    const regimes = agg[sn];
+    // Vérifier s'il y a un vrai delta dans cette section
+    let secHasDelta = false;
+    Object.values(regimes).forEach(days => {
+      Object.values(days).forEach(d => { if(d.midi || d.soir) secHasDelta = true; });
     });
-    html+='</tbody></table>';
+    if(!secHasDelta) return;
+
+    html += `<div style="font-family:Arial,sans-serif;font-weight:700;font-size:13px;background:#111;color:#fff;padding:5px 10px;margin:14px 0 6px">${sn.toUpperCase()}</div>`;
+    html += `<table border="1" cellpadding="4" cellspacing="0" style="border-collapse:collapse;font-family:Arial,sans-serif;font-size:11px;width:100%">`;
+    html += `<thead><tr style="background:#e5e7eb"><th>RÉGIME</th>`;
+    DAYS_S.forEach(d => html += `<th colspan="2">${d}<br><span style="font-size:8px">M / S</span></th>`);
+    html += `<th>TOTAL</th></tr></thead><tbody>`;
+
+    Object.keys(regimes).sort().forEach(regime => {
+      const days = regimes[regime];
+      let row = '', tot = 0, hasD = false;
+      for(let di = 0; di < 7; di++){
+        const dM = days[di]?.midi || 0;
+        const dS = days[di]?.soir || 0;
+        tot += dM + dS;
+        if(dM || dS) hasD = true;
+        const f = (v) => v === 0
+          ? '<span style="color:#ccc">—</span>'
+          : `<span style="color:${v>0?'#059669':'#dc2626'};font-weight:800">${v>0?'+':''}${v}</span>`;
+        row += `<td style="text-align:center">${f(dM)}</td><td style="text-align:center">${f(dS)}</td>`;
+      }
+      if(!hasD) return;
+      const tc = tot > 0 ? '#059669' : tot < 0 ? '#dc2626' : '#666';
+      html += `<tr><td style="font-weight:700;padding:4px 6px">${regime}</td>${row}<td style="text-align:center;font-weight:800;color:${tc};background:#f3f4f6">${tot>0?'+':''}${tot}</td></tr>`;
+    });
+    html += '</tbody></table>';
   });
 
   return html;
@@ -2204,7 +2201,7 @@ async function sendModifEmail(){
 
   // Calculer le numéro de bon AVANT de construire le HTML pour pouvoir l'afficher
   const bonNum=getNextBonNumber(week,year);
-  const htmlMods=buildDeltaHTML(week,year,bonNum);
+  const htmlMods=buildDeltaHTML(week,year,bonNum,mods);
 
   if(!EMAILJS_PUBLIC_KEY){
     status.style.display='block';
@@ -3599,14 +3596,15 @@ async function confirmRenvoiBon(){
   const status=$('renvoi-status');
   btn.disabled=true;btn.textContent='⏳ Envoi…';
 
-  // Renvoi : utiliser le deltaHTML stocké lors du premier envoi (toujours juste)
-  // Juste mettre à jour le titre pour indiquer que c'est un renvoi
-  let htmlMods = b.deltaHTML
-    ? b.deltaHTML.replace(
-        `BON DE MODIFICATION N°${b.bonNumber}</h3>`,
-        `BON DE MODIFICATION N°${b.bonNumber} (renvoi)</h3>`
-      )
-    : `<h3 style="font-family:Arial,sans-serif;color:#dc2626;margin-bottom:2px">BON DE MODIFICATION N°${b.bonNumber} (renvoi)</h3><p style="font-family:Arial,sans-serif;color:#6b7280;font-size:12px">Semaine ${b.week}/${b.year} — Du ${b.dateDebut} au ${b.dateFin}</p><p style="font-family:Arial,sans-serif;color:#6b7280">Le détail de ce bon n'est plus disponible.</p>`;
+  // Renvoi : recalculer depuis les modifications brutes stockées (toujours fiable)
+  const renvoyerMods = b.modifications||[];
+  let htmlMods = buildDeltaHTML(b.week, b.year, b.bonNumber, renvoyerMods);
+  if(!htmlMods){
+    htmlMods = `<h3 style="font-family:Arial,sans-serif;color:#dc2626;margin-bottom:2px">BON DE MODIFICATION N°${b.bonNumber} (renvoi)</h3><p style="font-family:Arial,sans-serif;color:#6b7280">Le détail de ce bon n'est plus disponible.</p>`;
+  } else {
+    // Ajouter "(renvoi)" dans le titre
+    htmlMods = htmlMods.replace(`BON DE MODIFICATION N°${b.bonNumber}</h3>`, `BON DE MODIFICATION N°${b.bonNumber} (renvoi)</h3>`);
+  }
 
   if(!EMAILJS_PUBLIC_KEY){
     status.style.display='block';
