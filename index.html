@@ -2145,6 +2145,14 @@ function buildDeltaHTML(week, year, bonNum){
   const tAv=calcParSection(snapInit);
   const tAp=calcParSection(snapCur);
 
+  // DEBUG — ouvre la console (F12) et cherche [DELTA]
+  console.log('[DELTA] snapInit groupesOverrides:', JSON.stringify(snapInit.groupesOverrides));
+  console.log('[DELTA] snapCur groupesOverrides:', JSON.stringify(snapCur.groupesOverrides));
+  console.log('[DELTA] tAv Maison Saint Paul di=3 midi:', JSON.stringify(tAv['Maison Saint Paul']?.[3]?.midi));
+  console.log('[DELTA] tAp Maison Saint Paul di=3 midi:', JSON.stringify(tAp['Maison Saint Paul']?.[3]?.midi));
+  console.log('[DELTA] tAv Foyer Tournon di=3 midi:', JSON.stringify(tAv['Foyer Tournon']?.[3]?.midi));
+  console.log('[DELTA] tAp Foyer Tournon di=3 midi:', JSON.stringify(tAp['Foyer Tournon']?.[3]?.midi));
+
   const allSections=[...new Set(S.lieux.map(l=>l.section||'Autre'))].sort();
 
   allSections.forEach(sn=>{
