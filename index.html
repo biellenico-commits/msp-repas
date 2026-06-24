@@ -1405,7 +1405,11 @@ async function loadFromSupabase(){
         id:b.id,date:b.date,week:b.week,year:b.year,
         dateDebut:b.date_debut,dateFin:b.date_fin,
         bonNumber:b.bon_number,modificationsCount:b.modifications_count,
-        modifications:b.modifications||[]
+        modifications:b.modifications||[],
+        deltaHTML:b.delta_html||'',
+        sentByEmail:b.sent_by_email||false,
+        sentBy:b.sent_by||'',
+        sendHistory:b.send_history||[]
       }));
     }
 
@@ -1606,7 +1610,11 @@ async function pushToSupabase(section='all'){
           id:b.id,date:b.date,week:b.week,year:b.year,
           date_debut:b.dateDebut,date_fin:b.dateFin,
           bon_number:b.bonNumber,modifications_count:b.modificationsCount,
-          modifications:b.modifications
+          modifications:b.modifications,
+          delta_html:b.deltaHTML||'',
+          sent_by_email:b.sentByEmail||false,
+          sent_by:b.sentBy||'',
+          send_history:b.sendHistory||[]
         }));
         await db.from('bons_modification').upsert(rows,{onConflict:'id'});
       }
