@@ -2076,7 +2076,6 @@ function openModifModal(){
 // Construit le tableau HTML +N/-N par lieu, régime et jour (delta net), à partir
 // du snapshot initial (avant impression) et de l'état courant
 function buildDeltaHTML(week, year, bonNum, mods){
-  console.log('[BUILD] mods reçus:', mods?.length, 'affectations count:', Object.keys(S.affectations||{}).length, JSON.stringify(mods?.map(m=>({n:m.personName,ig:m.isGroupe,ov:m.oldValue,nv:m.newValue,pid:m.personId}))));
   if(!mods||!mods.length) return '';
 
   const mon = getDateForDay(week,0), sun = getDateForDay(week,6);
@@ -2110,7 +2109,6 @@ function buildDeltaHTML(week, year, bonNum, mods){
       const lieu = S.lieux.find(l=>l.id===lieuId);
       if(lieu?.section) return lieu.section;
     }
-    console.warn('[SECTION non trouvée]', personId, personName, service, 'affectations:', JSON.stringify(S.affectations?.[personId]));
     return null;
   };
 
@@ -2136,7 +2134,6 @@ function buildDeltaHTML(week, year, bonNum, mods){
     const section = isGroupe
       ? (() => { const g=S.groupes.find(x=>x.id===m.personId); const lieu=S.lieux.find(l=>l.id===g?.lieuId); return lieu?.section||null; })()
       : getLieuSection(m.personId, m.personName, m.service);
-    console.log('[MOD]', m.personName, '| isGroupe:', isGroupe, '| section:', section, '| affectation:', S.affectations[m.personId], '| oldV:', m.oldValue, '| newV:', m.newValue);
     if(!section) return;
 
     const regime = isGroupe ? 'Normal' : getRegime(m.personId);
@@ -2214,7 +2211,6 @@ function buildDeltaHTML(week, year, bonNum, mods){
 async function sendModifEmail(){
   const w=wk(),week=S.currentWeek,year=S.currentYear;
   const mods=S.printHistory?.[w]?.modifications||[];
-  console.log('[SEND] w:', w, 'mods:', mods.length, JSON.stringify(mods.map(m=>m.personName)));
   const note=$('modif-note').value.trim();
   const btn=$('btn-send-modif');
   const status=$('modif-email-status');
